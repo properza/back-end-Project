@@ -1,11 +1,16 @@
-import mysql from 'mysql';
+import mysql from 'mysql2';
+import dotenv from 'dotenv';
 
-const connection = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "project_db"
-});
+dotenv.config();
+
+// const connection = mysql.createConnection({
+//     host: "localhost",
+//     user: "root",
+//     password: "",
+//     database: "project_db"
+// });
+
+const connection = mysql.createConnection(process.env.DATABASE_URL);
 
 connection.connect((err) => {
     if (err) {
@@ -15,4 +20,4 @@ connection.connect((err) => {
     }
 });
 
-export default connection; // ใช้ export default
+export default connection;
