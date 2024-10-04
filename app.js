@@ -11,9 +11,9 @@ app.use(express.json());
 // กำหนดเส้นทาง
 app.use(customerInfoRoutes);
 
-app.get('/',(req,res)=>{
+app.get('/', (req, res) => {
     res.send('This is my api running...');
-})
+});
 
 // app.listen(port, () => {
 //     console.log(`Server is running on port ${port}`);
