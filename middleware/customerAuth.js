@@ -3,9 +3,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-
-// const CUSTOMER_KEY = "customer*123"; // Secret key สำหรับเข้ารหัสและตรวจสอบ JWT
-
 export const customerAuth = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
