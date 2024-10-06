@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { createOrLoginCustomer, updateCustomerProfile  } from '../controllers/customerInfoController.js';
-// import { Auth,customerAuth } from '../middleware/customerAuth.js'; // นำเข้า customerAuth แบบ default
+import { createOrLoginCustomer, updateCustomerProfile } from '../controllers/customerInfoController.js';
+import { customerAuth } from '../middleware/customerAuth.js';
 
 const router = Router();
 
 router.post('/customerinfo', createOrLoginCustomer);
-router.put('/customerinfo/updateprofile', updateCustomerProfile);
+router.put('/customerinfo/updateprofile',  updateCustomerProfile); // ใช้ middleware customerAuth ที่นี่
 
 export default router;

@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 
-const CUSTOMER_KEY = "customer*123"; // Secret key สำหรับเข้ารหัสและตรวจสอบ JWT
+// const CUSTOMER_KEY = "customer*123"; // Secret key สำหรับเข้ารหัสและตรวจสอบ JWT
 
 export const customerAuth = async (req, res, next) => {
     try {
@@ -17,7 +20,7 @@ export const customerAuth = async (req, res, next) => {
         }
 
         // ตรวจสอบ JWT token
-        jwt.verify(token, CUSTOMER_KEY, { ignoreExpiration: true }, (err, decoded) => {
+        jwt.verify(token, process.env.CUSTOMER_KEY, { ignoreExpiration: true }, (err, decoded) => {
             if (err) {
                 return res.status(401).send({ code: "ERR_TOKEN", message: err.message });
             }
