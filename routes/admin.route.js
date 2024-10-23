@@ -8,6 +8,7 @@ router.post('/login', adminLogin);
 router.post('/create', verifySuperAdmin, createAdmin);
 router.post('/createEvent', verifyToken, createEvent);
 router.get('/event/super_admin', verifySuperAdmin, getAllEvents);
+router.post('/logout', verifyToken, logout);
 
 // เส้นทางสำหรับดู event ที่เป็น "special"
 router.get('/event/special', verifyToken, async (req, res) => {

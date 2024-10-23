@@ -188,3 +188,7 @@ export const getAllEvents = async (req, res) => {
     }
 };
 
+export const logout = (req, res) => {
+    // ส่ง response กลับไปเพื่อแจ้งให้ client ลบ token
+    return res.status(200).json({ message: "Logout successful. Please remove the token from the client side." });
+};
