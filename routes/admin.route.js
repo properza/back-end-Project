@@ -1,12 +1,24 @@
 import { Router } from 'express';
 import { adminLogin, createAdmin , createEvent, getAllEvents } from '../controllers/adminController.js';
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { verifyToken , verifySuperAdmin , verifyRole } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
 router.post('/login', adminLogin);
-router.post('/create', verifyToken, createAdmin);
+router.post('/create', verifySuperAdmin, createAdmin);
 router.post('/createEvent', verifyToken, createEvent);
-router.get('/event', verifyToken, getAllEvents);
+router.get('/event/super_admin', verifySuperAdmin, getAllEvents);
+
+// เส้นทางสำหรับดู event ที่เป็น "special"
+router.get('/event/special', verifyToken, async (req, res) => {
+    req.query.event_type = 'special';
+    return getAllEvents(req, res);
+});
+
+// เส้นทางสำหรับดู event ที่เป็น "normal"
+router.get('/event/normal', verifyToken, async (req, res) => {
+    req.query.event_type = 'normal';  
+    return getAllEvents(req, res);    
+});
 
 export default router;

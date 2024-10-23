@@ -41,6 +41,7 @@ export const adminLogin = async (req, res) => {
         );
 
         res.status(200).json({
+            adminID: admin.id,
             username: admin.username,
             firstname: admin.firstname,
             lastname: admin.lastname,
@@ -58,7 +59,7 @@ export const adminLogin = async (req, res) => {
 export const createAdmin = async (req, res) => {
     const { username, password, firstname, lastname, role } = req.body;
 
-    if (!['super_admin', 'class_A', 'class_B', 'class_C'].includes(role)) {
+    if (!['super_admin', 'special', 'normal', 'global'].includes(role)) {
         return res.status(400).json({ message: 'role ไม่ถูกต้อง' });
     }
 
@@ -77,7 +78,7 @@ export const createAdmin = async (req, res) => {
 
         console.log('Insert Result:', result);
 
-        res.status(201).json({ message: 'สร้าง admin สำเร็จแล้ว' });
+        res.status(201).json({ message: `สร้าง admin ${role} สำเร็จแล้ว` });
 
     } catch (err) {
         console.error(err);

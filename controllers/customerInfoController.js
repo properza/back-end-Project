@@ -1,9 +1,12 @@
 // Import connection from model
 import connection from "../model/database.js";
 
-// Create or login customer
 export const createOrLoginCustomer = async (req, res) => {
     const { customer_id, name, picture } = req.body;
+
+    if (!customer_id || !name || !picture) {
+        return res.status(400).json({ message: 'กรุณากรอก customer_id, name และ picture ให้ครบถ้วน' });
+    }
 
     try {
         const [results] = await connection.query(
@@ -12,7 +15,6 @@ export const createOrLoginCustomer = async (req, res) => {
         );
 
         if (results.length === 0) {
-            // If customer not found, create new customer
             const [insertResults] = await connection.query(
                 "INSERT INTO customerinfo (customer_id, name, picture) VALUES (?, ?, ?)",
                 [customer_id, name, picture]
@@ -39,6 +41,7 @@ export const createOrLoginCustomer = async (req, res) => {
     }
 };
 
+
 export const updateCustomerProfile = async (req, res) => {
     const {
         customer_id,
@@ -53,15 +56,18 @@ export const updateCustomerProfile = async (req, res) => {
     } = req.body;
 
     try {
+        // ตรวจสอบว่ามี customer ในฐานข้อมูลหรือไม่
         const [results] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
 
         if (results.length === 0) {
-            return res.status(404).json({ message: "User not found" });
+            // หากไม่พบข้อมูล customer จะแสดงข้อความว่า "Customer not found"
+            return res.status(404).json({ message: "Customer not found" });
         }
 
+        // อัปเดตข้อมูล customer
         await connection.query(
             "UPDATE customerinfo SET first_name = ?, last_name = ?, user_code = ?, group_st = ?, branch_st = ?, tpye_st = ?, st_tpye = ?, levelST = ? WHERE customer_id = ?",
             [
@@ -77,6 +83,7 @@ export const updateCustomerProfile = async (req, res) => {
             ]
         );
 
+        // ดึงข้อมูล customer ที่อัปเดตแล้วกลับมาแสดง
         const [updatedUserResults] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
@@ -88,9 +95,10 @@ export const updateCustomerProfile = async (req, res) => {
         });
     } catch (err) {
         console.log(err);
-        return res.status(500).send("Internal server error");
+        return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const getAllCustomers = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
