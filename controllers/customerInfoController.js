@@ -1,99 +1,149 @@
-import connection from '../model/database.js'; // สมมติว่าคุณมีไฟล์เชื่อมต่อ database แยก
+// Import connection from model
+import connection from "../model/database.js";
 
-// สร้างหรือล็อกอินผู้ใช้
+// Create or login customer
 export const createOrLoginCustomer = async (req, res) => {
     const { customer_id, name, picture } = req.body;
 
     try {
-        connection.query(
+        const [results] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
-            [customer_id],
-            (err, results, fields) => {
-                if (err) {
-                    console.log("Error querying the database", err);
-                    return res.status(500).send("Internal server error");
-                }
-
-                if (results.length === 0) {
-                    connection.query(
-                        "INSERT INTO customerinfo (customer_id, name, picture) VALUES (?, ?, ?)",
-                        [customer_id, name, picture],
-                        (err, insertResults, fields) => {
-                            if (err) {
-                                console.log("Cannot insert a user into the database", err);
-                                return res.status(400).send("Error inserting user");
-                            }
-
-                            connection.query(
-                                "SELECT * FROM customerinfo WHERE id = ?",
-                                [insertResults.insertId],
-                                (err, newUserResults, fields) => {
-                                    if (err) {
-                                        console.log("Error retrieving the newly created user", err);
-                                        return res.status(500).send("Error retrieving user");
-                                    }
-
-                                    return res.status(201).json({ message: 'Customer info created', user: newUserResults[0] });
-                                }
-                            );
-                        }
-                    );
-                } else {
-                    return res.status(200).json({ message: 'Login successful', user: results[0] });
-                }
-            }
+            [customer_id]
         );
+
+        if (results.length === 0) {
+            // If customer not found, create new customer
+            const [insertResults] = await connection.query(
+                "INSERT INTO customerinfo (customer_id, name, picture) VALUES (?, ?, ?)",
+                [customer_id, name, picture]
+            );
+
+            const [newUserResults] = await connection.query(
+                "SELECT * FROM customerinfo WHERE id = ?",
+                [insertResults.insertId]
+            );
+
+            return res.status(201).json({
+                message: "Customer info created",
+                user: newUserResults[0],
+            });
+        } else {
+            return res.status(200).json({
+                message: "Login successful",
+                user: results[0],
+            });
+        }
     } catch (err) {
         console.log(err);
         return res.status(500).send("Internal server error");
     }
 };
 
-// อัปเดตข้อมูลผู้ใช้
 export const updateCustomerProfile = async (req, res) => {
-    const { customer_id, first_name, last_name, user_code, group_st, branch_st, tpye_st, st_tpye, levelST } = req.body;
+    const {
+        customer_id,
+        first_name,
+        last_name,
+        user_code,
+        group_st,
+        branch_st,
+        tpye_st,
+        st_tpye,
+        levelST,
+    } = req.body;
 
     try {
-        connection.query(
+        const [results] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
-            [customer_id],
-            (err, results, fields) => {
-                if (err) {
-                    console.log("Error querying the database", err);
-                    return res.status(500).send("Internal server error");
-                }
-
-                if (results.length === 0) {
-                    return res.status(404).json({ message: 'User not found' });
-                }
-
-                connection.query(
-                    "UPDATE customerinfo SET first_name = ?, last_name = ?, user_code = ?, group_st = ?, branch_st = ?, tpye_st = ?, st_tpye = ?, levelST = ? WHERE customer_id = ?",
-                    [first_name, last_name, user_code, group_st, branch_st, tpye_st, st_tpye, levelST, customer_id],
-                    (err, updateResults, fields) => {
-                        if (err) {
-                            console.log("Error updating the user profile", err);
-                            return res.status(400).send("Error updating profile");
-                        }
-
-                        connection.query(
-                            "SELECT * FROM customerinfo WHERE customer_id = ?",
-                            [customer_id],
-                            (err, updatedUserResults, fields) => {
-                                if (err) {
-                                    console.log("Error retrieving the updated user", err);
-                                    return res.status(500).send("Error retrieving user");
-                                }
-
-                                return res.status(200).json({ message: 'Profile updated successfully', user: updatedUserResults[0] });
-                            }
-                        );
-                    }
-                );
-            }
+            [customer_id]
         );
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        await connection.query(
+            "UPDATE customerinfo SET first_name = ?, last_name = ?, user_code = ?, group_st = ?, branch_st = ?, tpye_st = ?, st_tpye = ?, levelST = ? WHERE customer_id = ?",
+            [
+                first_name,
+                last_name,
+                user_code,
+                group_st,
+                branch_st,
+                tpye_st,
+                st_tpye,
+                levelST,
+                customer_id,
+            ]
+        );
+
+        const [updatedUserResults] = await connection.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        return res.status(200).json({
+            message: "Profile updated successfully",
+            user: updatedUserResults[0],
+        });
     } catch (err) {
         console.log(err);
         return res.status(500).send("Internal server error");
     }
 };
+
+export const getAllCustomers = async (req, res) => {
+    let currentPage = parseInt(req.query.page) || 1;
+    let perPage = parseInt(req.query.per_page) || 10;
+    let stType = req.query.st_tpye || ''; // รับค่า st_tpye จาก query parameter (เช่น กยศ. หรือ ทั่วไป)
+
+    try {
+        // กำหนด query สำหรับนับจำนวนลูกค้าทั้งหมดตามประเภท st_tpye
+        let countQuery = "SELECT COUNT(*) as total FROM customerinfo";
+        let queryParams = [];
+
+        // ถ้ามีการส่งค่า st_tpye จะเพิ่มเงื่อนไขในการกรอง
+        if (stType) {
+            countQuery += " WHERE st_tpye = ?";
+            queryParams.push(stType);
+        }
+
+        const [countResults] = await connection.query(countQuery, queryParams);
+        let totalCustomers = countResults[0].total;
+        let totalPages = Math.ceil(totalCustomers / perPage);
+        let offset = (currentPage - 1) * perPage;
+
+        // กำหนด query สำหรับดึงข้อมูลลูกค้าตามประเภท st_tpye
+        let customerQuery = "SELECT * FROM customerinfo";
+        if (stType) {
+            customerQuery += " WHERE st_tpye = ?";
+        }
+        customerQuery += " LIMIT ? OFFSET ?";
+        
+        queryParams.push(perPage, offset);
+
+        const [customerResults] = await connection.query(customerQuery, queryParams);
+
+        const meta = {
+            total: totalCustomers,
+            per_page: perPage,
+            current_page: currentPage,
+            last_page: totalPages,
+            first_page: 1,
+            first_page_url: `/?page=1`,
+            last_page_url: `/?page=${totalPages}`,
+            next_page_url: currentPage < totalPages ? `/?page=${currentPage + 1}` : null,
+            previous_page_url: currentPage > 1 ? `/?page=${currentPage - 1}` : null
+        };
+
+        return res.status(200).json({
+            meta: meta,
+            data: customerResults
+        });
+    } catch (err) {
+        console.log(err);
+        return res.status(500).send("Internal server error");
+    }
+};
+
+

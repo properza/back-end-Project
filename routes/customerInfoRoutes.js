@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { createOrLoginCustomer, updateCustomerProfile } from '../controllers/customerInfoController.js';
-import { customerAuth } from '../middleware/customerAuth.js';
+import { createOrLoginCustomer, updateCustomerProfile, getAllCustomers} from '../controllers/customerInfoController.js';
 
 const router = Router();
 
+router.get('/customers', getAllCustomers);
 router.post('/customerinfo', createOrLoginCustomer);
-router.put('/customerinfo/updateprofile',  updateCustomerProfile); // ใช้ middleware customerAuth ที่นี่
+router.put('/customerinfo/updateprofile',  updateCustomerProfile);
 
 export default router;
