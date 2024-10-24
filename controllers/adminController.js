@@ -115,8 +115,8 @@ export const createEvent = async (req, res) => {
         }
 
         const [result] = await connection.query(
-            'INSERT INTO event (activityName, course, startDate, endDate, startTime, endTime, Nameplace, latitude, longitude, province, admin_id, admin_role, event_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [activityName, course, startDate, endDate, startTime, endTime, Nameplace, latitude, longitude, province, admin_id, admin_role, event_type]
+            'INSERT INTO event (activityName, course, startDate, endDate, startTime, endTime, Nameplace, latitude, longitude, province, admin_id,  event_type) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [activityName, course, startDate, endDate, startTime, endTime, Nameplace, latitude, longitude, province, admin_id, event_type]
         );
 
         res.status(201).json({ message: 'Event created successfully', eventId: result.insertId });
@@ -129,17 +129,11 @@ export const createEvent = async (req, res) => {
 export const getAllEvents = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
     let perPage = parseInt(req.query.per_page) || 10;
-    let adminRole = req.query.admin_role || ''; 
     let eventType = req.query.event_type || ''; 
 
     try {
         let countQuery = "SELECT COUNT(*) as total FROM event WHERE 1=1";
         let queryParams = [];
-
-        if (adminRole) {
-            countQuery += " AND admin_role = ?";
-            queryParams.push(adminRole);
-        }
 
         if (eventType) {
             countQuery += " AND event_type = ?";
@@ -152,11 +146,7 @@ export const getAllEvents = async (req, res) => {
         let offset = (currentPage - 1) * perPage;
 
         let eventQuery = "SELECT * FROM event WHERE 1=1";
-        
-        if (adminRole) {
-            eventQuery += " AND admin_role = ?";
-        }
-
+     
         if (eventType) {
             eventQuery += " AND event_type = ?";
         }

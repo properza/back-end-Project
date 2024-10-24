@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { adminLogin, createAdmin , createEvent, getAllEvents } from '../controllers/adminController.js';
-import { verifyToken , verifySuperAdmin , verifyRole } from '../middleware/authMiddleware.js';
+import { adminLogin, createAdmin , createEvent, getAllEvents , logout } from '../controllers/adminController.js';
+import { verifyToken , verifySuperAdmin } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
@@ -18,8 +18,8 @@ router.get('/event/special', verifyToken, async (req, res) => {
 
 // เส้นทางสำหรับดู event ที่เป็น "normal"
 router.get('/event/normal', verifyToken, async (req, res) => {
-    req.query.event_type = 'normal';  
-    return getAllEvents(req, res);    
+    req.query.event_type = 'normal';
+    return getAllEvents(req, res);
 });
 
 export default router;
