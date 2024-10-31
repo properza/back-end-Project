@@ -133,7 +133,11 @@ export const createEvent = async (req, res) => {
 export const getAllEvents = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
     let perPage = parseInt(req.query.per_page) || 10;
-    let eventType = req.query.event_type || ''; 
+    let eventType = req.query.event_type || '';
+    let status = req.query.status || ''; // รับค่า status จาก query parameters
+
+    // กำหนดเวลาปัจจุบัน
+    const currentTime = new Date();
 
     try {
         let countQuery = "SELECT COUNT(*) as total FROM event WHERE 1=1";
@@ -150,15 +154,37 @@ export const getAllEvents = async (req, res) => {
         let offset = (currentPage - 1) * perPage;
 
         let eventQuery = "SELECT * FROM event WHERE 1=1";
-     
+        queryParams = []; // รีเซ็ต queryParams สำหรับการดึงข้อมูลจริง
+
         if (eventType) {
             eventQuery += " AND event_type = ?";
+            queryParams.push(eventType);
         }
 
         eventQuery += " LIMIT ? OFFSET ?";
         queryParams.push(perPage, offset);
 
         const [eventResults] = await connection.query(eventQuery, queryParams);
+
+        // เพิ่ม status ในแต่ละกิจกรรม
+        const eventsWithStatus = eventResults.map(event => {
+            const startDate = new Date(`${event.startDate}T${event.startTime}`);
+            const endDate = new Date(`${event.endDate}T${event.endTime}`);
+            let eventStatus = '';
+
+            if (currentTime < startDate) {
+                eventStatus = "upcoming"; // ยังไม่ถึงเวลาเริ่ม
+            } else if (currentTime >= startDate && currentTime <= endDate) {
+                eventStatus = "starting"; // กำลังอยู่ในช่วงเวลากิจกรรม
+            } else {
+                eventStatus = "ending"; // กิจกรรมสิ้นสุดแล้ว
+            }
+
+            return {
+                ...event,
+                status: eventStatus
+            };
+        });
 
         const meta = {
             total: totalEvents,
@@ -174,7 +200,7 @@ export const getAllEvents = async (req, res) => {
 
         return res.status(200).json({
             meta: meta,
-            data: eventResults
+            data: eventsWithStatus
         });
     } catch (err) {
         console.log(err);

@@ -106,7 +106,6 @@ export const getEventWithCustomerCount = async (req, res) => {
 };
 
 
-
 export const registerCustomerForEvent = async (req, res) => {
     const { eventId } = req.params;
     const { customerId } = req.body;
@@ -126,17 +125,28 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(404).json({ message: "Event not found or not created by an admin" });
         }
 
+        // ตรวจสอบว่าลูกค้าลงทะเบียนในกิจกรรมนี้แล้วหรือไม่
+        const [registrationResults] = await connection.query(
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ?",
+            [eventId, customerId]
+        );
+
+        if (registrationResults.length > 0) {
+            return res.status(400).json({ message: "ท่านได้ลงชื่อเข้าร่วมไปแล้ว" });
+        }
+
         // บันทึกการลงทะเบียนของลูกค้า
         await connection.query(
             "INSERT INTO registrations (event_id, customer_id) VALUES (?, ?)",
             [eventId, customerId]
         );
 
-        return res.status(201).json({ message: "successfully." });
+        return res.status(201).json({ message: "เข้าร่วมสำเร็จ." });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 
