@@ -11,6 +11,11 @@ export const adminLogin = async (req, res) => {
     const { username, password } = req.body;
 
     try {
+        if (!JWT_SECRET) {
+            console.error('JWT_SECRET is not defined in the environment variables');
+            return res.status(500).json({ message: 'Server configuration error' });
+        }
+
         if (!username || !password) {
             return res.status(400).json({ message: 'กรุณากรอก Username และ Password' });
         }
@@ -28,7 +33,7 @@ export const adminLogin = async (req, res) => {
         const admin = rows[0];
         console.log('Admin Data:', admin);
 
-        const passwordIsValid = bcrypt.compareSync(password, admin.password);
+        const passwordIsValid = await bcrypt.compare(password, admin.password);
 
         if (!passwordIsValid) {
             return res.status(400).json({ message: 'Password ไม่ถูกต้อง' });
@@ -64,14 +69,13 @@ export const createAdmin = async (req, res) => {
     }
 
     try {
-        // ตรวจสอบว่าได้รับข้อมูลครบถ้วน
         if (!username || !password || !firstname || !lastname || !role) {
             return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
         }
 
-        const hashedPassword = bcrypt.hashSync(password, 8);
+        const hashedPassword = await bcrypt.hash(password, 8);
 
-        const result = await connection.execute(
+        const [result] = await connection.execute(
             'INSERT INTO admins (username, password, firstname, lastname, role) VALUES (?, ?, ?, ?, ?)',
             [username, hashedPassword, firstname, lastname, role]
         );
@@ -99,7 +103,7 @@ export const createEvent = async (req, res) => {
         longitude,
         province,
         admin_id,
-        event_type // รับค่าประเภทของ event (special, normal)
+        event_type
     } = req.body;
 
     try {
@@ -179,6 +183,5 @@ export const getAllEvents = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-    // ส่ง response กลับไปเพื่อแจ้งให้ client ลบ token
     return res.status(200).json({ message: "Logout successful. Please remove the token from the client side." });
 };
