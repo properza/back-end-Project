@@ -6,7 +6,7 @@ export const getEventWithCustomerCount = async (req, res) => {
     const perPage = parseInt(req.query.per_page) || 10;
 
     try {
-        // Query the total count of customers for pagination
+        // Query pagination
         const [countResults] = await connection.query(
             "SELECT COUNT(*) as total FROM registrations WHERE event_id = ?",
             [eventId]
@@ -15,7 +15,7 @@ export const getEventWithCustomerCount = async (req, res) => {
         const totalPages = Math.ceil(totalCustomers / perPage);
         const offset = (currentPage - 1) * perPage;
 
-        // Query the event details and list of customers
+        // Query customers
         const [eventResults] = await connection.query(
             `SELECT e.*, c.* 
             FROM event e 
@@ -47,7 +47,7 @@ export const getEventWithCustomerCount = async (req, res) => {
             statusMessage = "เข้าร่วมสำเร็จ";
         }
 
-        // Format the event and customer details into the requested structure
+        // Format structure
         const eventData = {
             id: eventResults[0].id,
             activityName: eventResults[0].activityName,
@@ -115,7 +115,6 @@ export const registerCustomerForEvent = async (req, res) => {
     }
 
     try {
-        // ตรวจสอบว่า event มีอยู่จริงในตาราง event
         const [eventResults] = await connection.query(
             "SELECT * FROM event WHERE id = ? AND admin_id IS NOT NULL",
             [eventId]
@@ -125,7 +124,6 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(404).json({ message: "Event not found or not created by an admin" });
         }
 
-        // ตรวจสอบว่าลูกค้าลงทะเบียนในกิจกรรมนี้แล้วหรือไม่
         const [registrationResults] = await connection.query(
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ?",
             [eventId, customerId]
@@ -135,7 +133,6 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ท่านได้ลงชื่อเข้าร่วมไปแล้ว" });
         }
 
-        // บันทึกการลงทะเบียนของลูกค้า
         await connection.query(
             "INSERT INTO registrations (event_id, customer_id) VALUES (?, ?)",
             [eventId, customerId]
@@ -149,4 +146,78 @@ export const registerCustomerForEvent = async (req, res) => {
 };
 
 
+export const getRegisteredEventsForCustomer = async (req, res) => {
+    const { customerId } = req.params;
+    const currentPage = parseInt(req.query.page) || 1;
+    const perPage = parseInt(req.query.per_page) || 10;
+
+    try {
+        // ตรวจสอบว่ามี customer หรือไม่
+        const [customerResults] = await connection.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customerId]
+        );
+
+        if (customerResults.length === 0) {
+            return res.status(404).json({ message: "Customer not found" });
+        }
+
+        // Query pagination
+        const [countResults] = await connection.query(
+            "SELECT COUNT(*) as total FROM registrations WHERE customer_id = ?",
+            [customerId]
+        );
+        const totalRegistrations = countResults[0].total;
+        const totalPages = Math.ceil(totalRegistrations / perPage);
+        const offset = (currentPage - 1) * perPage;
+
+        // ดึงรายการกิจกรรมที่ลูกค้าได้ลงทะเบียน
+        const [eventResults] = await connection.query(
+            `SELECT e.*, r.* 
+            FROM event e 
+            LEFT JOIN registrations r ON e.id = r.event_id 
+            WHERE r.customer_id = ? 
+            LIMIT ? OFFSET ?`,
+            [customerId, perPage, offset]
+        );
+
+        if (eventResults.length === 0) {
+            return res.status(404).json({ message: 'No events found for this customer' });
+        }
+
+        // แปลง startDate และ endDate เป็นสตริง ISO เพื่อดึงแค่ส่วนวันที่
+        const eventsData = eventResults.map(row => ({
+            eventId: row.id,
+            activityName: row.activityName,
+            course: row.course,
+            startDate: row.startDate,
+            endDate: row.endDate,
+            startTime: row.startTime,
+            endTime: row.endTime,
+            Nameplace: row.Nameplace,
+            province: row.province,
+            status: row.startDate > new Date() ? 'Upcoming' : 'Past'
+        }));
+
+        const meta = {
+            total: totalRegistrations,
+            per_page: perPage,
+            current_page: currentPage,
+            last_page: totalPages,
+            first_page: 1,
+            first_page_url: `/?page=1`,
+            last_page_url: `/?page=${totalPages}`,
+            next_page_url: currentPage < totalPages ? `/?page=${currentPage + 1}` : null,
+            previous_page_url: currentPage > 1 ? `/?page=${currentPage - 1}` : null
+        };
+
+        return res.status(200).json({
+            meta: meta,
+            data: eventsData
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
 

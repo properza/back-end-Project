@@ -1,5 +1,7 @@
-// Import connection from model
 import connection from "../model/database.js";
+// import multer from 'multer'; // ใช้สำหรับอัปโหลดไฟล์รูปภาพ (หากจะอัปโหลดไฟล์)
+
+// const upload = multer({ dest: 'uploads/' });
 
 export const createOrLoginCustomer = async (req, res) => {
     const { customer_id, name, picture } = req.body;
@@ -56,18 +58,15 @@ export const updateCustomerProfile = async (req, res) => {
     } = req.body;
 
     try {
-        // ตรวจสอบว่ามี customer ในฐานข้อมูลหรือไม่
         const [results] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
 
         if (results.length === 0) {
-            // หากไม่พบข้อมูล customer จะแสดงข้อความว่า "Customer not found"
             return res.status(404).json({ message: "Customer not found" });
         }
 
-        // อัปเดตข้อมูล customer
         await connection.query(
             "UPDATE customerinfo SET first_name = ?, last_name = ?, user_code = ?, group_st = ?, branch_st = ?, tpye_st = ?, st_tpye = ?, levelST = ? WHERE customer_id = ?",
             [
@@ -83,7 +82,6 @@ export const updateCustomerProfile = async (req, res) => {
             ]
         );
 
-        // ดึงข้อมูล customer ที่อัปเดตแล้วกลับมาแสดง
         const [updatedUserResults] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
@@ -93,24 +91,22 @@ export const updateCustomerProfile = async (req, res) => {
             message: "Profile updated successfully",
             user: updatedUserResults[0],
         });
+
     } catch (err) {
         console.log(err);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
 
-
 export const getAllCustomers = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
     let perPage = parseInt(req.query.per_page) || 10;
-    let stType = req.query.st_tpye || ''; // รับค่า st_tpye จาก query parameter (เช่น กยศ. หรือ ทั่วไป)
+    let stType = req.query.st_tpye || '';
 
     try {
-        // กำหนด query สำหรับนับจำนวนลูกค้าทั้งหมดตามประเภท st_tpye
         let countQuery = "SELECT COUNT(*) as total FROM customerinfo";
         let queryParams = [];
 
-        // ถ้ามีการส่งค่า st_tpye จะเพิ่มเงื่อนไขในการกรอง
         if (stType) {
             countQuery += " WHERE st_tpye = ?";
             queryParams.push(stType);
@@ -121,7 +117,6 @@ export const getAllCustomers = async (req, res) => {
         let totalPages = Math.ceil(totalCustomers / perPage);
         let offset = (currentPage - 1) * perPage;
 
-        // กำหนด query สำหรับดึงข้อมูลลูกค้าตามประเภท st_tpye
         let customerQuery = "SELECT * FROM customerinfo";
         if (stType) {
             customerQuery += " WHERE st_tpye = ?";
@@ -154,4 +149,40 @@ export const getAllCustomers = async (req, res) => {
     }
 };
 
+// อัปโหลดรูปภาพหรือภาพถ่าย
+export const uploadFaceIdImage = async (req, res) => {
+    const { customer_id, face_image_url } = req.body;
 
+    if (!customer_id || !face_image_url) {
+        return res.status(400).json({ message: 'กรุณากรอก customer_id และ face_image_url ให้ครบถ้วน' });
+    }
+
+    try {
+        const [results] = await connection.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: "Customer not found" });
+        }
+
+        await connection.query(
+            "UPDATE customerinfo SET verifyfaceUrl = ? WHERE customer_id = ?",
+            [face_image_url, customer_id]
+        );
+
+        const [updatedUserResults] = await connection.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        return res.status(200).json({
+            message: "Face ID image uploaded successfully",
+            user: updatedUserResults[0],
+        });
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
