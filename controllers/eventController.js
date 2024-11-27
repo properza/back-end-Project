@@ -132,18 +132,37 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ท่านได้ลงชื่อเข้าร่วมไปแล้ว" });
         }
 
+        // ทำการลงทะเบียน
         await connection.query(
             "INSERT INTO registrations (event_id, customer_id) VALUES (?, ?)",
             [eventId, customerId]
         );
 
-        // การส่งข้อความสถานะการลงทะเบียน
-        return res.status(201).json({ message: "เข้าร่วมสำเร็จ." });
+        // ดึงรายละเอียดกิจกรรมที่ลูกค้าได้ลงทะเบียน
+        const eventDetails = eventResults[0]; // เอาแค่แถวแรก (เพราะมันควรจะมีแค่ 1 กิจกรรม)
+        const eventData = {
+            eventId: eventDetails.id,
+            activityName: eventDetails.activityName,
+            course: eventDetails.course,
+            startDate: eventDetails.startDate,
+            endDate: eventDetails.endDate,
+            startTime: eventDetails.startTime,
+            endTime: eventDetails.endTime,
+            Nameplace: eventDetails.Nameplace,
+            province: eventDetails.province
+        };
+
+        // การส่งข้อความสถานะการลงทะเบียนและข้อมูลกิจกรรม
+        return res.status(201).json({ 
+            message: "เข้าร่วมสำเร็จ.",
+            event: eventData // ส่งข้อมูลกิจกรรมที่ลูกค้าได้เข้าร่วม
+        });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.body; // รับ customerId จาก body
