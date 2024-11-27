@@ -105,7 +105,6 @@ export const getEventWithCustomerCount = async (req, res) => {
     }
 };
 
-
 export const registerCustomerForEvent = async (req, res) => {
     const { eventId } = req.params;
     const { customerId } = req.body;
@@ -138,13 +137,13 @@ export const registerCustomerForEvent = async (req, res) => {
             [eventId, customerId]
         );
 
+        // การส่งข้อความสถานะการลงทะเบียน
         return res.status(201).json({ message: "เข้าร่วมสำเร็จ." });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
-
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.body; // รับ customerId จาก body
@@ -200,7 +199,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             endTime: row.endTime,
             Nameplace: row.Nameplace,
             province: row.province,
-            status: row.startDate > new Date() ? 'Upcoming' : 'Past'
+            // ตรวจสอบสถานะการเข้าร่วม
+            status: row.customer_id ? 'เข้าร่วมสำเร็จ' : 'ไม่สำเร็จ'
         }));
 
         const meta = {
