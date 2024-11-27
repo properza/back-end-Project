@@ -123,6 +123,14 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(404).json({ message: "Event not found or not created by an admin" });
         }
 
+        const eventDetails = eventResults[0];
+        const startTime = new Date(`${eventDetails.startDate}T${eventDetails.startTime}`); // รวมวันที่และเวลา startTime
+        const currentTime = new Date(); // เวลาปัจจุบัน
+
+        // คำนวณระยะเวลาความแตกต่างระหว่างเวลาปัจจุบันและ startTime
+        const timeDifference = startTime - currentTime;
+        const minutesToStart = Math.floor(timeDifference / (1000 * 60)); // หาค่าความแตกต่างในนาที
+
         const [registrationResults] = await connection.query(
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ?",
             [eventId, customerId]
@@ -132,37 +140,44 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ท่านได้ลงชื่อเข้าร่วมไปแล้ว" });
         }
 
-        // ทำการลงทะเบียน
-        await connection.query(
-            "INSERT INTO registrations (event_id, customer_id) VALUES (?, ?)",
-            [eventId, customerId]
-        );
+        if (minutesToStart > 45) {
+            // กรณีที่กิจกรรมยังไม่เริ่มและยังมีเวลามากกว่า 45 นาที
+            const hours = Math.floor(minutesToStart / 60);
+            const minutes = minutesToStart % 60;
+            return res.status(400).json({
+                message: `ยังไม่เริ่มกิจกรรม กิจกรรมจะเริ่มในอีก ${hours} ชั่วโมง ${minutes} นาที`
+            });
+        } else if (minutesToStart <= 45 && minutesToStart >= 0) {
+            // กรณีที่อยู่ในช่วง 45 นาทีแรกหลังจาก startTime
+            await connection.query(
+                "INSERT INTO registrations (event_id, customer_id) VALUES (?, ?)",
+                [eventId, customerId]
+            );
+            const eventData = {
+                eventId: eventDetails.id,
+                activityName: eventDetails.activityName,
+                course: eventDetails.course,
+                startDate: eventDetails.startDate,
+                endDate: eventDetails.endDate,
+                startTime: eventDetails.startTime,
+                endTime: eventDetails.endTime,
+                Nameplace: eventDetails.Nameplace,
+                province: eventDetails.province
+            };
+            return res.status(201).json({
+                message: "เข้าร่วมสำเร็จ.",
+                event: eventData
+            });
+        } else {
+            // กรณีที่เวลาผ่านไปแล้ว 45 นาทีหลังจาก startTime
+            return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
+        }
 
-        // ดึงรายละเอียดกิจกรรมที่ลูกค้าได้ลงทะเบียน
-        const eventDetails = eventResults[0]; // เอาแค่แถวแรก (เพราะมันควรจะมีแค่ 1 กิจกรรม)
-        const eventData = {
-            eventId: eventDetails.id,
-            activityName: eventDetails.activityName,
-            course: eventDetails.course,
-            startDate: eventDetails.startDate,
-            endDate: eventDetails.endDate,
-            startTime: eventDetails.startTime,
-            endTime: eventDetails.endTime,
-            Nameplace: eventDetails.Nameplace,
-            province: eventDetails.province
-        };
-
-        // การส่งข้อความสถานะการลงทะเบียนและข้อมูลกิจกรรม
-        return res.status(201).json({ 
-            message: "เข้าร่วมสำเร็จ.",
-            event: eventData // ส่งข้อมูลกิจกรรมที่ลูกค้าได้เข้าร่วม
-        });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
-
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.body; // รับ customerId จาก body
@@ -243,5 +258,3 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
-
-
