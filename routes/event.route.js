@@ -6,6 +6,6 @@ const router = Router();
 
 router.post('/registerCustomer/:eventId', registerCustomerForEvent);
 router.get('/events/:eventId/customers', verifyToken, getEventWithCustomerCount);
-router.post('/customer/registered-events', getRegisteredEventsForCustomer);
+router.get('/customer/registered-events', getRegisteredEventsForCustomer);
 
 export default router;
