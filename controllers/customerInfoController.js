@@ -168,7 +168,7 @@ export const uploadFaceIdImage = async (req, res) => {
         }
 
         await connection.query(
-            "UPDATE customerinfo SET verifyfaceUrl = ? WHERE customer_id = ?",
+            "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
             [face_image_url, customer_id]
         );
 
