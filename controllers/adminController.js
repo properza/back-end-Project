@@ -60,6 +60,30 @@ export const adminLogin = async (req, res) => {
     }
 };
 
+export const getAdminData = async (req, res) => {
+    try {
+        const adminId = req.user.id;
+
+        const [rows] = await connection.query('SELECT * FROM admins WHERE id = ?', [adminId]);
+
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ message: 'Admin not found' });
+        }
+
+        const admin = rows[0];
+        
+        res.status(200).json({
+            adminID: admin.id,
+            username: admin.username,
+            firstname: admin.firstname,
+            lastname: admin.lastname,
+            role: admin.role
+        });
+    } catch (err) {
+        console.error('Error fetching admin data:', err);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
 
 export const createAdmin = async (req, res) => {
     const { username, password, firstname, lastname, role } = req.body;

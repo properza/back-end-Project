@@ -258,3 +258,80 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+export const EditEvent = async (req, res) => {
+    const { eventId } = req.params;
+    const { event_type } = req.body;
+
+    const isSuperAdmin = req.user.role === 'super_admin'; 
+
+    if (event_type && !['special', 'normal'].includes(event_type)) {
+        return res.status(400).json({ message: 'Invalid event type' });
+    }
+
+    try {
+        const [eventResults] = await connection.query(
+            "SELECT * FROM event WHERE id = ?", [eventId]
+        );
+
+        if (eventResults.length === 0) {
+            return res.status(404).json({ message: "Event not found" });
+        }
+
+        const event = eventResults[0];
+
+        if (isSuperAdmin || event.event_type === event_type) {
+            const updateQuery = `
+                UPDATE event 
+                SET activityName = ?, course = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?, event_type = ?
+                WHERE id = ?
+            `;
+            await connection.query(updateQuery, [
+                req.body.activityName, req.body.course, req.body.startDate, req.body.endDate,
+                req.body.startTime, req.body.endTime, event_type || event.event_type, eventId
+            ]);
+
+            return res.status(200).json({ message: 'Event updated successfully' });
+        } else {
+            return res.status(403).json({ message: 'You do not have permission to edit this event' });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// Delete event function
+export const DeleteEvent = async (req, res) => {
+    const { eventId } = req.params;
+    const { event_type } = req.body;
+
+    const isSuperAdmin = req.user.role === 'super_admin'; 
+
+    if (event_type && !['special', 'normal'].includes(event_type)) {
+        return res.status(400).json({ message: 'Invalid event type' });
+    }
+
+    try {
+        const [eventResults] = await connection.query(
+            "SELECT * FROM event WHERE id = ?", [eventId]
+        );
+
+        if (eventResults.length === 0) {
+            return res.status(404).json({ message: "Event not found" });
+        }
+
+        const event = eventResults[0];
+
+        if (isSuperAdmin || event.event_type === event_type) {
+            await connection.query("DELETE FROM event WHERE id = ?", [eventId]);
+
+            return res.status(200).json({ message: 'Event deleted successfully' });
+        } else {
+            return res.status(403).json({ message: 'You do not have permission to delete this event' });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
