@@ -8,7 +8,7 @@ router.post('/login', adminLogin);
 router.post('/create', verifySuperAdmin, createAdmin);
 router.post('/createEvent', verifyToken, createEvent);
 router.get('/event/super_admin', verifySuperAdmin, getAllEvents);
-router.get('/event/auth', verifySuperAdmin, getAdminData);
+router.get('/auth', verifyToken, getAdminData);
 router.post('/logout', verifyToken, logout);
 
 
