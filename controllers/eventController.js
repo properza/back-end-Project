@@ -305,19 +305,32 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
 
         // แปลง startDate และ endDate เป็นสตริง ISO เพื่อดึงแค่ส่วนวันที่
-        const eventsData = eventResults.map(row => ({
-            eventId: row.id,
-            activityName: row.activityName,
-            course: row.course,
-            startDate: row.startDate,
-            endDate: row.endDate,
-            startTime: row.startTime,
-            endTime: row.endTime,
-            Nameplace: row.Nameplace,
-            province: row.province,
-            // ตรวจสอบสถานะการเข้าร่วม
-            status: row.customer_id ? 'เข้าร่วมสำเร็จ' : 'ไม่สำเร็จ'
-        }));
+        const eventsData = eventResults.map(row => {
+            let imagesArray = [];
+            if (row.images) {
+                try {
+                    imagesArray = JSON.parse(row.images);
+                } catch (err) {
+                    console.error("Error parsing JSON images:", err);
+                    // imagesArray จะเป็น [] ถ้า parse ไม่ได้
+                }
+            }
+        
+            return {
+                eventId: row.id,
+                activityName: row.activityName,
+                course: row.course,
+                startDate: row.startDate,
+                endDate: row.endDate,
+                startTime: row.startTime,
+                endTime: row.endTime,
+                Nameplace: row.Nameplace,
+                province: row.province,
+                // ตรวจสอบสถานะการเข้าร่วม
+                status: row.customer_id ? 'เข้าร่วมสำเร็จ' : 'ไม่สำเร็จ',
+                images: imagesArray // ได้เป็น array ของ URL รูป
+            };
+        });
 
         const meta = {
             total: totalRegistrations,
