@@ -218,7 +218,7 @@ export const registerCustomerForEvent = async (req, res) => {
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: `Internal server error : Your time zone = ${currentTime}` });
     }
 };
 
