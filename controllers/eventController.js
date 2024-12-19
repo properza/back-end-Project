@@ -54,8 +54,7 @@ export const getEventWithCustomerCount = async (req, res) => {
             try {
                 imagesArray = JSON.parse(eventResults[0].images);
             } catch (err) {
-                console.error("Invalid JSON in images column:", err);
-                // ถ้า parse ไม่ได้ อาจตั้งเป็น array ว่าง ๆ หรือส่ง error กลับ
+                console.error("Invalid JSON in images:", err);
                 imagesArray = [];
             }
         }
