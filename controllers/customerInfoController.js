@@ -1,7 +1,4 @@
 import connection from "../model/database.js";
-// import multer from 'multer'; // ใช้สำหรับอัปโหลดไฟล์รูปภาพ (หากจะอัปโหลดไฟล์)
-
-// const upload = multer({ dest: 'uploads/' });
 
 export const createOrLoginCustomer = async (req, res) => {
     const { customer_id, name, picture } = req.body;

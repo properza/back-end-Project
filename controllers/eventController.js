@@ -386,8 +386,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                     totalPointsToAdd += points;
 
                     await connection.query(
-                        "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? OR id = ?",
-                        [points, row.in_registration_id, row.out_registration_id]
+                        "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+                        [points, row.in_registration_id]
                     );
 
                 } else {
@@ -415,13 +415,30 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             };
         }));
 
-        if (totalPointsToAdd > 0) {
+        // ดึง total_point ปัจจุบันจาก customerinfo
+        const [totalPointResults] = await connection.query(
+            "SELECT total_point FROM customerinfo WHERE customer_id = ?",
+            [customerId]
+        );
+        const currentTotalPoint = totalPointResults[0].total_point || 0;
+
+        // เช็คว่า total_point ปัจจุบันมากกว่า totalPointsToAdd หรือไม่
+        if (currentTotalPoint > totalPointsToAdd) {
+            // ถ้ามากกว่า ให้ใช้ totalPointsToAdd
             await connection.query(
-                "UPDATE customerinfo SET total_point = COALESCE(total_point, 0) + ? WHERE customer_id = ?",
+                "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
                 [totalPointsToAdd, customerId]
             );
 
-            console.log(`Added ${totalPointsToAdd} points to customer ID: ${customerId}`);
+            console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
+        } else {
+            // ถ้าน้อยกว่า หรือเท่ากัน ให้ใช้ totalPointsToAdd
+            await connection.query(
+                "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
+                [totalPointsToAdd, customerId]
+            );
+
+            console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
         }
 
         await connection.commit();
