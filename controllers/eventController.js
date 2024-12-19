@@ -48,6 +48,17 @@ export const getEventWithCustomerCount = async (req, res) => {
                 customer_id: row.customer_id,
                 name: row.name,
                 picture: row.picture,
+                email: row.email,
+                first_name: row.first_name,
+                last_name: row.last_name,
+                user_code: row.user_code,
+                group_st: row.group_st,
+                branch_st: row.branch_st,
+                tpye_st: row.tpye_st,
+                st_tpye: row.st_tpye,
+                total_point: row.total_point,
+                faceUrl: row.faceUrl,
+                levelST: row.levelST,
                 images: row.registrationImages ? JSON.parse(row.registrationImages) : []
             }))
         };
@@ -93,6 +104,24 @@ export const registerCustomerForEvent = async (req, res) => {
         }
 
         const eventDetails = eventResults[0];
+
+        if (imagesJson) {
+            await connection.query(
+                "UPDATE event SET images = ? WHERE id = ?",
+                [imagesJson, eventId]
+            );
+            eventDetails.images = imagesJson;
+        }
+
+        const startDateObj = new Date(eventDetails.startDate);
+        const endDateObj = new Date(eventDetails.endDate);
+
+        const startDateStr = startDateObj.toISOString().split('T')[0];
+        const endDateStr = endDateObj.toISOString().split('T')[0];
+
+        const eventStart = new Date(`${startDateStr}T${eventDetails.startTime}`);
+        const eventEnd = new Date(`${endDateStr}T${eventDetails.endTime}`);
+
         const currentUTC = new Date();
         const currentTime = new Date(currentUTC.getTime() + 7 * 60 * 60 * 1000);
 
@@ -101,57 +130,108 @@ export const registerCustomerForEvent = async (req, res) => {
             [eventId, customerId]
         );
 
-        if (currentTime < new Date(eventDetails.startDate + "T" + eventDetails.startTime)) {
+        // ตรวจสอบเงื่อนไขเวลากิจกรรมและการลงชื่อเหมือนเดิม
+        if (currentTime < eventStart) {
+            // ยังไม่เริ่มกิจกรรม
+            const diffBeforeStart = eventStart - currentTime;
+            const minutesBeforeStart = Math.floor(diffBeforeStart / (1000 * 60));
+
             if (registrationResults.length === 0) {
-                await connection.query(
-                    "INSERT INTO registrations (event_id, customer_id, check_type, images) VALUES (?, ?, 'in', ?)",
-                    [eventId, customerId, imagesJson]
-                );
-                return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ (ล่วงหน้า)" });
+                if (minutesBeforeStart <= 45) {
+                    await connection.query(
+                        "INSERT INTO registrations (event_id, customer_id, check_type, images) VALUES (?, ?, 'in', ?)",
+                        [eventId, customerId, imagesJson]
+                    );
+                    const eventData = mapEventData(eventDetails);
+                    return res.status(201).json({
+                        message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ (ล่วงหน้า)",
+                        event: eventData
+                    });
+                } else {
+                    const hours = Math.floor(minutesBeforeStart / 60);
+                    const minutes = minutesBeforeStart % 60;
+                    return res.status(400).json({
+                        message: `ยังไม่เริ่มกิจกรรม กิจกรรมจะเริ่มในอีก ${hours} ชั่วโมง ${minutes} นาที`
+                    });
+                }
+            } else if (registrationResults.length === 1) {
+                const lastReg = registrationResults[0];
+                if (lastReg.check_type === 'in') {
+                    return res.status(400).json({ message: "ยังไม่สามารถเช็คชื่อออกได้เนื่องจากกิจกรรมยังไม่เริ่ม" });
+                } else {
+                    return res.status(400).json({ message: "คุณได้ลงชื่อครบแล้ว" });
+                }
+            } else {
+                return res.status(400).json({ message: "คุณได้ลงชื่อครบแล้ว" });
             }
-        } else if (currentTime >= new Date(eventDetails.startDate + "T" + eventDetails.startTime) &&
-            currentTime <= new Date(eventDetails.endDate + "T" + eventDetails.endTime)) {
+
+        } else if (currentTime >= eventStart && currentTime <= eventEnd) {
+            // อยู่ในช่วงกิจกรรม
+            const diffAfterStart = currentTime - eventStart;
+            const minutesAfterStart = Math.floor(diffAfterStart / (1000 * 60));
+
             if (registrationResults.length === 0) {
-                await connection.query(
-                    "INSERT INTO registrations (event_id, customer_id, check_type, images) VALUES (?, ?, 'in', ?)",
-                    [eventId, customerId, imagesJson]
-                );
-                return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
-            } else if (registrationResults[0].check_type === 'in') {
-                await connection.query(
-                    "INSERT INTO registrations (event_id, customer_id, check_type) VALUES (?, ?, 'out')",
-                    [eventId, customerId]
-                );
-                return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ" });
+                if (minutesAfterStart <= 45) {
+                    await connection.query(
+                        "INSERT INTO registrations (event_id, customer_id, check_type, images) VALUES (?, ?, 'in', ?)",
+                        [eventId, customerId, imagesJson]
+                    );
+                    const eventData = mapEventData(eventDetails);
+                    return res.status(201).json({
+                        message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ",
+                        event: eventData
+                    });
+                } else {
+                    return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
+                }
+            } else if (registrationResults.length === 1) {
+                const lastReg = registrationResults[0];
+                if (lastReg.check_type === 'in') {
+                    await connection.query(
+                        "INSERT INTO registrations (event_id, customer_id, check_type) VALUES (?, ?, 'out')",
+                        [eventId, customerId]
+                    );
+                    const eventData = mapEventData(eventDetails);
+                    return res.status(201).json({
+                        message: "เช็คชื่อออกจากกิจกรรมสำเร็จ",
+                        event: eventData
+                    });
+                } else {
+                    return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
+                }
+            } else {
+                return res.status(400).json({ message: "คุณได้ลงชื่อครบแล้ว" });
             }
+
+        } else {
+            return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
         }
 
-        return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: `Internal server error : Your time zone = ${new Date()}` });
     }
 };
 
-// function mapEventData(eventDetails) {
-//     let imagesArray = [];
-//     if (eventDetails.images) {
-//         imagesArray = JSON.parse(eventDetails.images);
-//     }
+function mapEventData(eventDetails) {
+    // let imagesArray = [];
+    // if (eventDetails.images) {
+    //     imagesArray = JSON.parse(eventDetails.images);
+    // }
 
-//     return {
-//         eventId: eventDetails.id,
-//         activityName: eventDetails.activityName,
-//         course: eventDetails.course,
-//         startDate: eventDetails.startDate,
-//         endDate: eventDetails.endDate,
-//         startTime: eventDetails.startTime,
-//         endTime: eventDetails.endTime,
-//         Nameplace: eventDetails.Nameplace,
-//         province: eventDetails.province,
-//         images: imagesArray
-//     };
-// }
+    return {
+        eventId: eventDetails.id,
+        activityName: eventDetails.activityName,
+        course: eventDetails.course,
+        startDate: eventDetails.startDate,
+        endDate: eventDetails.endDate,
+        startTime: eventDetails.startTime,
+        endTime: eventDetails.endTime,
+        Nameplace: eventDetails.Nameplace,
+        province: eventDetails.province,
+        // images: imagesArray
+    };
+}
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.body; // รับ customerId จาก body
@@ -237,6 +317,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const EditEvent = async (req, res) => {
     const { eventId } = req.params;
