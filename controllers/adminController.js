@@ -2,6 +2,7 @@ import connection from "../model/database.js";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { DateTime } from 'luxon'; 
 
 dotenv.config();
 
@@ -161,8 +162,8 @@ export const getAllEvents = async (req, res) => {
     let status = req.query.status || ''; // รับค่า status จาก query parameters
 
     // กำหนดเวลาปัจจุบัน
-    const currentUTC = new Date()
-    const currentTime = new Date(currentUTC.getTime() + 7 * 60 * 60 * 1000)
+    const timezone = 'Asia/Bangkok';
+    const currentTime = DateTime.now().setZone(timezone);
 
     try {
         let countQuery = "SELECT COUNT(*) as total FROM event WHERE 1=1";

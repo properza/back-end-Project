@@ -13,5 +13,4 @@ app.use('/admin',adminRoutes)
 app.use('/customer',customerInfoRoutes)
 app.use('/events',eventRoutes)
 
-
-app.listen(process.env.port || 3000);
+app.listen(process.env.port || 4000);
