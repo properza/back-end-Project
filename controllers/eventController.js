@@ -77,6 +77,7 @@ export const getEventWithCustomerCount = async (req, res) => {
     }
 };
 
+
 export const registerCustomerForEvent = async (req, res) => {
     const { eventId } = req.params;
     const { customerId, images } = req.body;
@@ -292,7 +293,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 Nameplace: row.Nameplace,
                 province: row.province,
                 status: row.customer_id ? 'เข้าร่วมสำเร็จ' : 'ไม่สำเร็จ',
-                images: imagesArray
+                    images: row.registrationImages ? JSON.parse(row.registrationImages) : []
             };
         });
 
