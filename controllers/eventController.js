@@ -49,6 +49,17 @@ export const getEventWithCustomerCount = async (req, res) => {
             statusMessage = "เข้าร่วมสำเร็จ";
         }
 
+        let imagesArray = [];
+        if (eventResults[0].images) {
+            try {
+                imagesArray = JSON.parse(eventResults[0].images);
+            } catch (err) {
+                console.error("Invalid JSON in images column:", err);
+                // ถ้า parse ไม่ได้ อาจตั้งเป็น array ว่าง ๆ หรือส่ง error กลับ
+                imagesArray = [];
+            }
+        }
+
         // Format structure
         const eventData = {
             id: eventResults[0].id,
@@ -81,7 +92,8 @@ export const getEventWithCustomerCount = async (req, res) => {
                 st_tpye: row.st_tpye,
                 total_point: row.total_point,
                 faceUrl: row.faceUrl,
-                levelST: row.levelST
+                levelST: row.levelST,
+                    images: imagesArray,
             }))
         };
 
