@@ -292,7 +292,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         const totalPages = Math.ceil(totalRegistrations / perPage);
         const offset = (currentPage - 1) * perPage;
 
-        // ดึงรายการกิจกรรมที่ลูกค้าได้ลงทะเบียน
+        // ดึงรายการกิจกรรมที่ลูกค้าได้ลงทะเบียน พร้อมเรียงลำดับจากล่าสุด
         const [eventResults] = await connection.query(
             `SELECT e.*, r.* 
             FROM event e 
@@ -303,19 +303,14 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             [customerId, perPage, offset]
         );
 
-
-        // แปลง startDate และ endDate เป็นสตริง ISO เพื่อดึงแค่ส่วนวันที่
         const eventsData = eventResults.map(row => {
             let imagesArray = [];
             if (row.images) {
-                try {
-                    imagesArray = JSON.parse(row.images);
-                } catch (err) {
-                    console.error("Error parsing JSON images:", err);
-                    // imagesArray จะเป็น [] ถ้า parse ไม่ได้
-                }
+                // หาก images เก็บเป็น JSON string ให้ parse
+                // ตรวจดูด้วย console.log(row.images) ว่ามาในรูปแบบใด
+                imagesArray = JSON.parse(row.images);
             }
-        
+
             return {
                 eventId: row.id,
                 activityName: row.activityName,
@@ -326,9 +321,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 endTime: row.endTime,
                 Nameplace: row.Nameplace,
                 province: row.province,
-                // ตรวจสอบสถานะการเข้าร่วม
                 status: row.customer_id ? 'เข้าร่วมสำเร็จ' : 'ไม่สำเร็จ',
-                images: imagesArray // ได้เป็น array ของ URL รูป
+                images: imagesArray
             };
         });
 
@@ -353,6 +347,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const EditEvent = async (req, res) => {
     const { eventId } = req.params;
