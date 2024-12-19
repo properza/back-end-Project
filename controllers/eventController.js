@@ -135,7 +135,10 @@ export const registerCustomerForEvent = async (req, res) => {
         const eventStart = new Date(`${startDateStr}T${eventDetails.startTime}`);
         const eventEnd = new Date(`${endDateStr}T${eventDetails.endTime}`);
 
-        const currentTime = new Date();
+        // const currentTime = new Date();
+
+        const currentUTC = new Date()
+        const currentTime = new Date(currentUTC.getTime() + 7 * 60 * 60 * 1000)
 
         const [registrationResults] = await connection.query(
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? ORDER BY created_at ASC",
