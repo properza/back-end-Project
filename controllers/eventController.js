@@ -39,7 +39,7 @@ export const getEventWithCustomerCount = async (req, res) => {
         // ตรวจสอบเวลาปัจจุบัน เทียบกับเวลาของกิจกรรม
         const currentUTC = new Date()
         const currentTime = new Date(currentUTC.getTime() + 7 * 60 * 60 * 1000)
-        
+
         let statusMessage = '';
         if (currentTime < startTime) {
             statusMessage = "ยังไม่ถึงเวลาเริ่มกิจกรรมที่กำหนด";
@@ -109,10 +109,18 @@ export const getEventWithCustomerCount = async (req, res) => {
 
 export const registerCustomerForEvent = async (req, res) => {
     const { eventId } = req.params;
-    const { customerId } = req.body;
+    const { customerId, images } = req.body;
 
     if (!customerId) {
         return res.status(400).json({ message: "กรุณาระบุ customerId" });
+    }
+
+    let imagesJson = null;
+    if (images) {
+        if (!Array.isArray(images)) {
+            return res.status(400).json({ message: "images ควรเป็น array ของลิงก์รูป" });
+        }
+        imagesJson = JSON.stringify(images);
     }
 
     try {
@@ -127,7 +135,14 @@ export const registerCustomerForEvent = async (req, res) => {
 
         const eventDetails = eventResults[0];
 
-        // แปลง startDate, endDate เป็น String ในรูปแบบ ISO YYYY-MM-DD
+        if (imagesJson) {
+            await connection.query(
+                "UPDATE event SET images = ? WHERE id = ?",
+                [imagesJson, eventId]
+            );
+            eventDetails.images = imagesJson;
+        }
+
         const startDateObj = new Date(eventDetails.startDate);
         const endDateObj = new Date(eventDetails.endDate);
 
@@ -137,17 +152,17 @@ export const registerCustomerForEvent = async (req, res) => {
         const eventStart = new Date(`${startDateStr}T${eventDetails.startTime}`);
         const eventEnd = new Date(`${endDateStr}T${eventDetails.endTime}`);
 
-        // const currentTime = new Date();
-
-        const currentUTC = new Date()
-        const currentTime = new Date(currentUTC.getTime() + 7 * 60 * 60 * 1000)
+        const currentUTC = new Date();
+        const currentTime = new Date(currentUTC.getTime() + 7 * 60 * 60 * 1000);
 
         const [registrationResults] = await connection.query(
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? ORDER BY created_at ASC",
             [eventId, customerId]
         );
 
+        // ตรวจสอบเงื่อนไขเวลากิจกรรมและการลงชื่อเหมือนเดิม
         if (currentTime < eventStart) {
+            // ยังไม่เริ่มกิจกรรม
             const diffBeforeStart = eventStart - currentTime;
             const minutesBeforeStart = Math.floor(diffBeforeStart / (1000 * 60));
 
@@ -181,6 +196,7 @@ export const registerCustomerForEvent = async (req, res) => {
             }
 
         } else if (currentTime >= eventStart && currentTime <= eventEnd) {
+            // อยู่ในช่วงกิจกรรม
             const diffAfterStart = currentTime - eventStart;
             const minutesAfterStart = Math.floor(diffAfterStart / (1000 * 60));
 
@@ -223,11 +239,16 @@ export const registerCustomerForEvent = async (req, res) => {
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ message: `Internal server error : Your time zone = ${currentTime}` });
+        return res.status(500).json({ message: `Internal server error : Your time zone = ${new Date()}` });
     }
 };
 
 function mapEventData(eventDetails) {
+    let imagesArray = [];
+    if (eventDetails.images) {
+        imagesArray = JSON.parse(eventDetails.images);
+    }
+
     return {
         eventId: eventDetails.id,
         activityName: eventDetails.activityName,
@@ -237,7 +258,8 @@ function mapEventData(eventDetails) {
         startTime: eventDetails.startTime,
         endTime: eventDetails.endTime,
         Nameplace: eventDetails.Nameplace,
-        province: eventDetails.province
+        province: eventDetails.province,
+        images: imagesArray
     };
 }
 
@@ -275,7 +297,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             `SELECT e.*, r.* 
             FROM event e 
             LEFT JOIN registrations r ON e.id = r.event_id 
-            WHERE r.customer_id = ? 
+            WHERE r.customer_id = ?
+            ORDER BY r.created_at DESC
             LIMIT ? OFFSET ?`,
             [customerId, perPage, offset]
         );
