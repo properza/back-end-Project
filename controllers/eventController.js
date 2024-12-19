@@ -218,9 +218,6 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             [customerId, perPage, offset]
         );
 
-        if (eventResults.length === 0) {
-            return res.status(404).json({ message: 'No events found for this customer' });
-        }
 
         // แปลง startDate และ endDate เป็นสตริง ISO เพื่อดึงแค่ส่วนวันที่
         const eventsData = eventResults.map(row => ({
