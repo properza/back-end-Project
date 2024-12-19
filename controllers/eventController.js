@@ -161,7 +161,7 @@ export const registerCustomerForEvent = async (req, res) => {
                     const hours = Math.floor(minutesBeforeStart / 60);
                     const minutes = minutesBeforeStart % 60;
                     return res.status(400).json({
-                        message: `ยังไม่เริ่มกิจกรรม กิจกรรมจะเริ่มในอีก ${hours} ชั่วโมง ${minutes} นาที`
+                        message: `ยังไม่เริ่มกิจกรรม กิจกรรมจะเริ่มในอีก ${hours} ชั่วโมง ${minutes} นาที : เวลาของคุณ = ${currentTime}`
                     });
                 }
             } else if (registrationResults.length === 1) {
