@@ -63,7 +63,7 @@ export const getEventWithCustomerCount = async (req, res) => {
             admin_id: eventResults[0].admin_id,
             event_type: eventResults[0].event_type,
             created_at: eventResults[0].created_at,
-            status: statusMessage, // แสดงสถานะกิจกรรม
+            status: statusMessage,
             listST: eventResults.map(row => ({
                 id: row.customer_id,
                 customer_id: row.customer_id,
@@ -124,12 +124,10 @@ export const registerCustomerForEvent = async (req, res) => {
         }
 
         const eventDetails = eventResults[0];
-        const startTime = new Date(`${eventDetails.startDate}T${eventDetails.startTime}`); // รวมวันที่และเวลา startTime
-        const currentTime = new Date(); // เวลาปัจจุบัน
-
-        // คำนวณระยะเวลาความแตกต่างระหว่างเวลาปัจจุบันและ startTime
+        const startTime = new Date(`${eventDetails.startDate}T${eventDetails.startTime}`);
+        const currentTime = new Date();
         const timeDifference = startTime - currentTime;
-        const minutesToStart = Math.floor(timeDifference / (1000 * 60)); // หาค่าความแตกต่างในนาที
+        const minutesToStart = Math.floor(timeDifference / (1000 * 60));
 
         const [registrationResults] = await connection.query(
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ?",
@@ -140,15 +138,15 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ท่านได้ลงชื่อเข้าร่วมไปแล้ว" });
         }
 
-        if (minutesToStart > 45) {
-            // กรณีที่กิจกรรมยังไม่เริ่มและยังมีเวลามากกว่า 45 นาที
+        if (minutesToStart > 415) {
+            // กิจกรรมยังไม่เริ่มและยังเหลือมากกว่า 45 นาที
             const hours = Math.floor(minutesToStart / 60);
             const minutes = minutesToStart % 60;
             return res.status(400).json({
                 message: `ยังไม่เริ่มกิจกรรม กิจกรรมจะเริ่มในอีก ${hours} ชั่วโมง ${minutes} นาที`
             });
-        } else if (minutesToStart <= 45 && minutesToStart >= 0) {
-            // กรณีที่อยู่ในช่วง 45 นาทีแรกหลังจาก startTime
+        } else if (minutesToStart <= 15 && minutesToStart >= 0) {
+            // กิจกรรมยังไม่เริ่ม แต่จะเริ่มภายใน 15 นาที
             await connection.query(
                 "INSERT INTO registrations (event_id, customer_id) VALUES (?, ?)",
                 [eventId, customerId]
@@ -169,8 +167,34 @@ export const registerCustomerForEvent = async (req, res) => {
                 event: eventData
             });
         } else {
-            // กรณีที่เวลาผ่านไปแล้ว 45 นาทีหลังจาก startTime
-            return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
+            // กรณีนี้คือ minutesToStart < 0 แปลว่ากิจกรรมเริ่มไปแล้ว
+            const minutesAfterStart = Math.abs(minutesToStart);
+        
+            if (minutesAfterStart <= 15) {
+                // อนุญาตให้ลงทะเบียนภายใน 15 นาทีแรกหลังกิจกรรมเริ่ม
+                await connection.query(
+                    "INSERT INTO registrations (event_id, customer_id) VALUES (?, ?)",
+                    [eventId, customerId]
+                );
+                const eventData = {
+                    eventId: eventDetails.id,
+                    activityName: eventDetails.activityName,
+                    course: eventDetails.course,
+                    startDate: eventDetails.startDate,
+                    endDate: eventDetails.endDate,
+                    startTime: eventDetails.startTime,
+                    endTime: eventDetails.endTime,
+                    Nameplace: eventDetails.Nameplace,
+                    province: eventDetails.province
+                };
+                return res.status(201).json({
+                    message: "เข้าร่วมสำเร็จ.",
+                    event: eventData
+                });
+            } else {
+                // กิจกรรมเริ่มเกิน 15 นาทีแล้ว
+                return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
+            }
         }
 
     } catch (error) {

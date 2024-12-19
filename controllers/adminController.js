@@ -197,11 +197,11 @@ export const getAllEvents = async (req, res) => {
             let eventStatus = '';
 
             if (currentTime < startDate) {
-                eventStatus = "upcoming"; // ยังไม่ถึงเวลาเริ่ม
+                eventStatus = "inactive"; // ยังไม่ถึงเวลาเริ่ม
             } else if (currentTime >= startDate && currentTime <= endDate) {
-                eventStatus = "starting"; // กำลังอยู่ในช่วงเวลากิจกรรม
+                eventStatus = "active"; // กำลังอยู่ในช่วงเวลากิจกรรม
             } else {
-                eventStatus = "ending"; // กิจกรรมสิ้นสุดแล้ว
+                eventStatus = "complete"; // กิจกรรมสิ้นสุดแล้ว
             }
 
             return {
