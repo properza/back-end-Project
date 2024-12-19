@@ -125,8 +125,15 @@ export const registerCustomerForEvent = async (req, res) => {
 
         const eventDetails = eventResults[0];
 
-        const eventStart = new Date(`${eventDetails.startDate.split('T')[0]}T${eventDetails.startTime}`);
-        const eventEnd = new Date(`${eventDetails.endDate.split('T')[0]}T${eventDetails.endTime}`);
+        // แปลง startDate, endDate เป็น String ในรูปแบบ ISO YYYY-MM-DD
+        const startDateObj = new Date(eventDetails.startDate);
+        const endDateObj = new Date(eventDetails.endDate);
+
+        const startDateStr = startDateObj.toISOString().split('T')[0];
+        const endDateStr = endDateObj.toISOString().split('T')[0];
+
+        const eventStart = new Date(`${startDateStr}T${eventDetails.startTime}`);
+        const eventEnd = new Date(`${endDateStr}T${eventDetails.endTime}`);
 
         const currentTime = new Date();
 
@@ -158,27 +165,21 @@ export const registerCustomerForEvent = async (req, res) => {
                     });
                 }
             } else if (registrationResults.length === 1) {
-                // เคย check-in แล้วหรือยัง?
                 const lastReg = registrationResults[0];
                 if (lastReg.check_type === 'in') {
                     return res.status(400).json({ message: "ยังไม่สามารถเช็คชื่อออกได้เนื่องจากกิจกรรมยังไม่เริ่ม" });
                 } else {
-                    // มี record ที่ไม่ใช่ in (ไม่ปกติ) หรือเคย out ไปแล้ว
                     return res.status(400).json({ message: "คุณได้ลงชื่อครบแล้ว" });
                 }
             } else {
-                // มีมากกว่า 1 record แสดงว่าลงชื่อครบแล้ว
                 return res.status(400).json({ message: "คุณได้ลงชื่อครบแล้ว" });
             }
 
         } else if (currentTime >= eventStart && currentTime <= eventEnd) {
-            // กิจกรรมกำลังดำเนินอยู่
             const diffAfterStart = currentTime - eventStart;
             const minutesAfterStart = Math.floor(diffAfterStart / (1000 * 60));
 
             if (registrationResults.length === 0) {
-                // ยังไม่เคยลงชื่อเลย
-                // สามารถ check-in ได้ถ้ากิจกรรมเริ่มไปแล้วไม่เกิน 45 นาที
                 if (minutesAfterStart <= 45) {
                     await connection.query(
                         "INSERT INTO registrations (event_id, customer_id, check_type) VALUES (?, ?, 'in')",
@@ -193,11 +194,8 @@ export const registerCustomerForEvent = async (req, res) => {
                     return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
                 }
             } else if (registrationResults.length === 1) {
-                // เคยลงชื่อครั้งหนึ่งแล้ว ต้องเช็คว่าเป็น in หรือ out
                 const lastReg = registrationResults[0];
                 if (lastReg.check_type === 'in') {
-                    // ถ้าเป็น in แล้วครั้งนี้เป็น out ได้ไหม?
-                    // สมมุติว่าให้ out ได้ทุกเมื่อในระหว่างกิจกรรม (หรือจะเพิ่มเงื่อนไขก็ได้)
                     await connection.query(
                         "INSERT INTO registrations (event_id, customer_id, check_type) VALUES (?, ?, 'out')",
                         [eventId, customerId]
@@ -224,7 +222,6 @@ export const registerCustomerForEvent = async (req, res) => {
     }
 };
 
-// ฟังก์ชันช่วยสร้าง eventData object
 function mapEventData(eventDetails) {
     return {
         eventId: eventDetails.id,
@@ -238,8 +235,6 @@ function mapEventData(eventDetails) {
         province: eventDetails.province
     };
 }
-
-
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.body; // รับ customerId จาก body
