@@ -161,7 +161,8 @@ export const getAllEvents = async (req, res) => {
     let status = req.query.status || ''; // รับค่า status จาก query parameters
 
     // กำหนดเวลาปัจจุบัน
-    const currentTime = new Date();
+    const currentUTC = new Date()
+    const currentTime = new Date(currentUTC.getTime() + 7 * 60 * 60 * 1000)
 
     try {
         let countQuery = "SELECT COUNT(*) as total FROM event WHERE 1=1";
@@ -184,6 +185,8 @@ export const getAllEvents = async (req, res) => {
             eventQuery += " AND event_type = ?";
             queryParams.push(eventType);
         }
+
+        eventQuery += " ORDER BY created_at DESC";
 
         eventQuery += " LIMIT ? OFFSET ?";
         queryParams.push(perPage, offset);

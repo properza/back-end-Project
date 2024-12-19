@@ -37,7 +37,9 @@ export const getEventWithCustomerCount = async (req, res) => {
         const endTime = new Date(`${endDateStr}T${eventResults[0].endTime}`);
 
         // ตรวจสอบเวลาปัจจุบัน เทียบกับเวลาของกิจกรรม
-        const currentTime = new Date();
+        const currentUTC = new Date()
+        const currentTime = new Date(currentUTC.getTime() + 7 * 60 * 60 * 1000)
+        
         let statusMessage = '';
         if (currentTime < startTime) {
             statusMessage = "ยังไม่ถึงเวลาเริ่มกิจกรรมที่กำหนด";
@@ -164,7 +166,7 @@ export const registerCustomerForEvent = async (req, res) => {
                     const hours = Math.floor(minutesBeforeStart / 60);
                     const minutes = minutesBeforeStart % 60;
                     return res.status(400).json({
-                        message: `ยังไม่เริ่มกิจกรรม กิจกรรมจะเริ่มในอีก ${hours} ชั่วโมง ${minutes} นาที : เวลาของคุณ = ${currentTime}`
+                        message: `ยังไม่เริ่มกิจกรรม กิจกรรมจะเริ่มในอีก ${hours} ชั่วโมง ${minutes} นาที`
                     });
                 }
             } else if (registrationResults.length === 1) {
