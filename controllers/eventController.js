@@ -563,7 +563,6 @@ export const EditEvent = async (req, res) => {
     }
 };
 
-
 // Delete event function
 export const DeleteEvent = async (req, res) => {
     const { eventId } = req.params;

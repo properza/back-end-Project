@@ -2,7 +2,7 @@ import connection from "../model/database.js";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-import { DateTime } from 'luxon'; 
+import { DateTime } from 'luxon';
 
 dotenv.config();
 
@@ -42,7 +42,7 @@ export const adminLogin = async (req, res) => {
 
         const token = jwt.sign(
             { id: admin.id, role: admin.role },
-            JWT_SECRET,  
+            JWT_SECRET,
             { expiresIn: 86400 }
         );
 
@@ -72,7 +72,7 @@ export const getAdminData = async (req, res) => {
         }
 
         const admin = rows[0];
-        
+
         res.status(200).json({
             adminID: admin.id,
             username: admin.username,
@@ -159,46 +159,40 @@ export const getAllEvents = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
     let perPage = parseInt(req.query.per_page) || 10;
     let eventType = req.query.event_type || '';
-    let status = req.query.status || ''; // รับค่า status จาก query parameters
+    let status = req.query.status || '';
 
-    // กำหนดเวลาปัจจุบันในเขตเวลา Asia/Bangkok
     const timezone = 'Asia/Bangkok';
     const currentTime = DateTime.now().setZone(timezone);
-    const currentTimeStr = currentTime.toFormat('yyyy-MM-dd HH:mm:ss'); // รูปแบบที่ใช้ใน SQL
+    const currentTimeStr = currentTime.toFormat('yyyy-MM-dd HH:mm:ss');
 
     try {
         let countQuery = "SELECT COUNT(*) as total FROM event WHERE 1=1";
         let queryParams = [];
 
-        // เพิ่มเงื่อนไขตาม eventType ถ้ามี
         if (eventType) {
             countQuery += " AND event_type = ?";
             queryParams.push(eventType);
         }
 
-        // เพิ่มเงื่อนไขตาม status ถ้ามี
         if (status) {
-            if (status === 'inactive') {
-                countQuery += " AND CONCAT(startDate, ' ', startTime) > ?";
+            if (status === 'complete') {
+                countQuery += " AND CONCAT(endDate, ' ', endTime) < ?";
                 queryParams.push(currentTimeStr);
             } else if (status === 'active') {
                 countQuery += " AND CONCAT(startDate, ' ', startTime) <= ? AND CONCAT(endDate, ' ', endTime) >= ?";
                 queryParams.push(currentTimeStr, currentTimeStr);
-            } else if (status === 'complete') {
-                countQuery += " AND CONCAT(endDate, ' ', endTime) < ?";
+            } else if (status === 'inactive') {
+                countQuery += " AND CONCAT(startDate, ' ', startTime) > ?";
                 queryParams.push(currentTimeStr);
-            } else {
-                return res.status(400).json({ message: "Invalid status parameter. Allowed values are 'inactive', 'active', 'complete'." });
             }
         }
 
-        // ดึงจำนวนกิจกรรมทั้งหมดที่ตรงกับเงื่อนไข
         const [countResults] = await connection.query(countQuery, queryParams);
         let totalEvents = countResults[0].total;
+
         let totalPages = Math.ceil(totalEvents / perPage);
         let offset = (currentPage - 1) * perPage;
 
-        // สร้าง eventQuery โดยรวมเงื่อนไขตาม eventType และ status
         let eventQuery = "SELECT * FROM event WHERE 1=1";
         let eventQueryParams = [];
 
@@ -220,52 +214,84 @@ export const getAllEvents = async (req, res) => {
             }
         }
 
-        eventQuery += " ORDER BY created_at DESC";
-        eventQuery += " LIMIT ? OFFSET ?";
+        eventQuery += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
         eventQueryParams.push(perPage, offset);
 
-        // ดึงข้อมูลกิจกรรมที่ตรงกับเงื่อนไข
+
         const [eventResults] = await connection.query(eventQuery, eventQueryParams);
 
-        // เพิ่ม status ในแต่ละกิจกรรม
+        if (eventResults.length === 0) {
+            console.warn("No events found in final query.");
+            return res.status(404).json({ message: "No events found." });
+        }
+
         const eventsWithStatus = eventResults.map(event => {
-            const startDateTime = DateTime.fromFormat(`${event.startDate} ${event.startTime}`, 'yyyy-MM-dd HH:mm:ss', { zone: timezone });
-            const endDateTime = DateTime.fromFormat(`${event.endDate} ${event.endTime}`, 'yyyy-MM-dd HH:mm:ss', { zone: timezone });
-            let eventStatus = '';
-
-            if (currentTime < startDateTime) {
-                eventStatus = "inactive"; // ยังไม่ถึงเวลาเริ่ม
-            } else if (currentTime >= startDateTime && currentTime <= endDateTime) {
-                eventStatus = "active"; // กำลังอยู่ในช่วงเวลากิจกรรม
-            } else {
-                eventStatus = "complete"; // กิจกรรมสิ้นสุดแล้ว
+            try {
+                const startDate = typeof event.startDate === "string" 
+                    ? event.startDate 
+                    : event.startDate.toISOString(); 
+        
+                const endDate = typeof event.endDate === "string" 
+                    ? event.endDate 
+                    : event.endDate.toISOString();
+        
+                if (!event.startTime || typeof event.startTime !== "string" || 
+                    !event.endTime || typeof event.endTime !== "string") {
+                    console.error(`Invalid Start/End Time for Event ID: ${event.id}`);
+                    return { ...event, status: "error" };
+                }
+        
+                const startDateTime = DateTime.fromFormat(
+                    `${startDate.split('T')[0]} ${event.startTime}`, 
+                    "yyyy-MM-dd HH:mm:ss",
+                    { zone: timezone }
+                );
+        
+                const endDateTime = DateTime.fromFormat(
+                    `${endDate.split('T')[0]} ${event.endTime}`, 
+                    "yyyy-MM-dd HH:mm:ss",
+                    { zone: timezone }
+                );
+        
+                if (!startDateTime.isValid || !endDateTime.isValid) {
+                    console.error(`Invalid DateTime for Event ID: ${event.id}`);
+                    return { ...event, status: "error" };
+                }
+        
+                let eventStatus = '';
+                if (currentTime < startDateTime) {
+                    eventStatus = "inactive";
+                } else if (currentTime >= startDateTime && currentTime <= endDateTime) {
+                    eventStatus = "active";
+                } else if (currentTime > endDateTime) {
+                    eventStatus = "complete";
+                }
+        
+                console.log(`Event ID: ${event.id}, Status: ${eventStatus}`);
+                return { ...event, status: eventStatus };
+            } catch (error) {
+                console.error(`Error processing Event ID: ${event.id}`, error);
+                return { ...event, status: "error" };
             }
-
-            return {
-                ...event,
-                status: eventStatus
-            };
         });
-
-        const meta = {
-            total: totalEvents,
-            per_page: perPage,
-            current_page: currentPage,
-            last_page: totalPages,
-            first_page: 1,
-            first_page_url: `/?page=1`,
-            last_page_url: `/?page=${totalPages}`,
-            next_page_url: currentPage < totalPages ? `/?page=${currentPage + 1}` : null,
-            previous_page_url: currentPage > 1 ? `/?page=${currentPage - 1}` : null
-        };
-
+              
         return res.status(200).json({
-            meta: meta,
-            data: eventsWithStatus
+            meta: {
+                total: totalEvents,
+                per_page: perPage,
+                current_page: currentPage,
+                last_page: totalPages,
+                first_page: 1,
+                first_page_url: `/?page=1`,
+                last_page_url: `/?page=${totalPages}`,
+                next_page_url: currentPage < totalPages ? `/?page=${currentPage + 1}` : null,
+                previous_page_url: currentPage > 1 ? `/?page=${currentPage - 1}` : null
+            },
+            data: eventsWithStatus,
         });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).send("Internal server error");
+    } catch (error) {
+        console.error("Error fetching events:", error);
+        return res.status(500).json({ message: "Internal server error." });
     }
 };
 
