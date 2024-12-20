@@ -161,48 +161,81 @@ export const getAllEvents = async (req, res) => {
     let eventType = req.query.event_type || '';
     let status = req.query.status || ''; // รับค่า status จาก query parameters
 
-    // กำหนดเวลาปัจจุบัน
+    // กำหนดเวลาปัจจุบันในเขตเวลา Asia/Bangkok
     const timezone = 'Asia/Bangkok';
     const currentTime = DateTime.now().setZone(timezone);
+    const currentTimeStr = currentTime.toFormat('yyyy-MM-dd HH:mm:ss'); // รูปแบบที่ใช้ใน SQL
 
     try {
         let countQuery = "SELECT COUNT(*) as total FROM event WHERE 1=1";
         let queryParams = [];
 
+        // เพิ่มเงื่อนไขตาม eventType ถ้ามี
         if (eventType) {
             countQuery += " AND event_type = ?";
             queryParams.push(eventType);
         }
 
+        // เพิ่มเงื่อนไขตาม status ถ้ามี
+        if (status) {
+            if (status === 'inactive') {
+                countQuery += " AND CONCAT(startDate, ' ', startTime) > ?";
+                queryParams.push(currentTimeStr);
+            } else if (status === 'active') {
+                countQuery += " AND CONCAT(startDate, ' ', startTime) <= ? AND CONCAT(endDate, ' ', endTime) >= ?";
+                queryParams.push(currentTimeStr, currentTimeStr);
+            } else if (status === 'complete') {
+                countQuery += " AND CONCAT(endDate, ' ', endTime) < ?";
+                queryParams.push(currentTimeStr);
+            } else {
+                return res.status(400).json({ message: "Invalid status parameter. Allowed values are 'inactive', 'active', 'complete'." });
+            }
+        }
+
+        // ดึงจำนวนกิจกรรมทั้งหมดที่ตรงกับเงื่อนไข
         const [countResults] = await connection.query(countQuery, queryParams);
         let totalEvents = countResults[0].total;
         let totalPages = Math.ceil(totalEvents / perPage);
         let offset = (currentPage - 1) * perPage;
 
+        // สร้าง eventQuery โดยรวมเงื่อนไขตาม eventType และ status
         let eventQuery = "SELECT * FROM event WHERE 1=1";
-        queryParams = []; // รีเซ็ต queryParams สำหรับการดึงข้อมูลจริง
+        let eventQueryParams = [];
 
         if (eventType) {
             eventQuery += " AND event_type = ?";
-            queryParams.push(eventType);
+            eventQueryParams.push(eventType);
+        }
+
+        if (status) {
+            if (status === 'inactive') {
+                eventQuery += " AND CONCAT(startDate, ' ', startTime) > ?";
+                eventQueryParams.push(currentTimeStr);
+            } else if (status === 'active') {
+                eventQuery += " AND CONCAT(startDate, ' ', startTime) <= ? AND CONCAT(endDate, ' ', endTime) >= ?";
+                eventQueryParams.push(currentTimeStr, currentTimeStr);
+            } else if (status === 'complete') {
+                eventQuery += " AND CONCAT(endDate, ' ', endTime) < ?";
+                eventQueryParams.push(currentTimeStr);
+            }
         }
 
         eventQuery += " ORDER BY created_at DESC";
-
         eventQuery += " LIMIT ? OFFSET ?";
-        queryParams.push(perPage, offset);
+        eventQueryParams.push(perPage, offset);
 
-        const [eventResults] = await connection.query(eventQuery, queryParams);
+        // ดึงข้อมูลกิจกรรมที่ตรงกับเงื่อนไข
+        const [eventResults] = await connection.query(eventQuery, eventQueryParams);
 
         // เพิ่ม status ในแต่ละกิจกรรม
         const eventsWithStatus = eventResults.map(event => {
-            const startDate = new Date(`${event.startDate}T${event.startTime}`);
-            const endDate = new Date(`${event.endDate}T${event.endTime}`);
+            const startDateTime = DateTime.fromFormat(`${event.startDate} ${event.startTime}`, 'yyyy-MM-dd HH:mm:ss', { zone: timezone });
+            const endDateTime = DateTime.fromFormat(`${event.endDate} ${event.endTime}`, 'yyyy-MM-dd HH:mm:ss', { zone: timezone });
             let eventStatus = '';
 
-            if (currentTime < startDate) {
+            if (currentTime < startDateTime) {
                 eventStatus = "inactive"; // ยังไม่ถึงเวลาเริ่ม
-            } else if (currentTime >= startDate && currentTime <= endDate) {
+            } else if (currentTime >= startDateTime && currentTime <= endDateTime) {
                 eventStatus = "active"; // กำลังอยู่ในช่วงเวลากิจกรรม
             } else {
                 eventStatus = "complete"; // กิจกรรมสิ้นสุดแล้ว
@@ -231,7 +264,7 @@ export const getAllEvents = async (req, res) => {
             data: eventsWithStatus
         });
     } catch (err) {
-        console.log(err);
+        console.error(err);
         return res.status(500).send("Internal server error");
     }
 };
