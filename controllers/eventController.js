@@ -469,15 +469,37 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
 export const EditEvent = async (req, res) => {
     const { eventId } = req.params;
-    const { event_type } = req.body;
+    const { event_type, latitude, longitude, province } = req.body;
 
     const isSuperAdmin = req.user.role === 'super_admin'; 
 
+    // ตรวจสอบ event_type หากมีการส่งมา
     if (event_type && !['special', 'normal'].includes(event_type)) {
         return res.status(400).json({ message: 'Invalid event type' });
     }
 
+    // ตรวจสอบ latitude และ longitude หากมีการส่งมา
+    if (latitude !== undefined) {
+        const lat = parseFloat(latitude);
+        if (isNaN(lat) || lat < -90 || lat > 90) {
+            return res.status(400).json({ message: 'Invalid latitude value' });
+        }
+    }
+
+    if (longitude !== undefined) {
+        const lng = parseFloat(longitude);
+        if (isNaN(lng) || lng < -180 || lng > 180) {
+            return res.status(400).json({ message: 'Invalid longitude value' });
+        }
+    }
+
+    // ตรวจสอบ province หากมีการส่งมา
+    if (province !== undefined && typeof province !== 'string') {
+        return res.status(400).json({ message: 'Invalid province value' });
+    }
+
     try {
+        // ตรวจสอบว่ากิจกรรมมีอยู่ในฐานข้อมูลหรือไม่
         const [eventResults] = await connection.query(
             "SELECT * FROM event WHERE id = ?", [eventId]
         );
@@ -488,16 +510,48 @@ export const EditEvent = async (req, res) => {
 
         const event = eventResults[0];
 
+        // ตรวจสอบสิทธิ์ในการแก้ไขกิจกรรม
         if (isSuperAdmin || event.event_type === event_type) {
-            const updateQuery = `
+            // สร้าง array ของค่าใหม่ที่จะอัปเดต
+            const updateFields = [
+                req.body.activityName,
+                req.body.course,
+                req.body.startDate,
+                req.body.endDate,
+                req.body.startTime,
+                req.body.endTime,
+                event_type || event.event_type
+            ];
+
+            // สร้าง query และ parameters สำหรับฟิลด์ที่อัปเดต
+            let updateQuery = `
                 UPDATE event 
                 SET activityName = ?, course = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?, event_type = ?
-                WHERE id = ?
             `;
-            await connection.query(updateQuery, [
-                req.body.activityName, req.body.course, req.body.startDate, req.body.endDate,
-                req.body.startTime, req.body.endTime, event_type || event.event_type, eventId
-            ]);
+            let queryParams = [...updateFields];
+
+            // ถ้ามีการส่ง latitude, longitude, หรือ province มา ให้เพิ่มเข้าไปใน query
+            if (latitude !== undefined) {
+                updateQuery += `, latitude = ?`;
+                queryParams.push(parseFloat(latitude));
+            }
+
+            if (longitude !== undefined) {
+                updateQuery += `, longitude = ?`;
+                queryParams.push(parseFloat(longitude));
+            }
+
+            if (province !== undefined) {
+                updateQuery += `, province = ?`;
+                queryParams.push(province);
+            }
+
+            // เพิ่มเงื่อนไข WHERE
+            updateQuery += ` WHERE id = ?`;
+            queryParams.push(eventId);
+
+            // ทำการอัปเดตข้อมูลในฐานข้อมูล
+            await connection.query(updateQuery, queryParams);
 
             return res.status(200).json({ message: 'Event updated successfully' });
         } else {
@@ -508,6 +562,7 @@ export const EditEvent = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 // Delete event function
 export const DeleteEvent = async (req, res) => {
