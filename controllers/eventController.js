@@ -296,6 +296,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 e.endTime,
                 e.Nameplace,
                 e.province,
+                e.latitude,    
+                e.longitude    
                 r_in.images AS registrationImages,   -- Alias for 'in' registration images
                 r_in.time_check AS in_time,
                 r_in.id AS in_registration_id,
