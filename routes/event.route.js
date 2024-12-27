@@ -6,7 +6,7 @@ const router = Router();
 
 router.post('/registerCustomer/:eventId', registerCustomerForEvent);
 router.get('/events/:eventId/customers', verifyToken, getEventWithCustomerCount);
-router.get('/customer/registered-events', getRegisteredEventsForCustomer);
+router.get('/customer/registered-events/:customerId', getRegisteredEventsForCustomer);
 router.put('/event/:eventId/edit', verifyToken, EditEvent);
 router.delete('/event/:eventId/delete', verifyToken, DeleteEvent);
 

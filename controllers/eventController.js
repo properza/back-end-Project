@@ -252,7 +252,7 @@ export const registerCustomerForEvent = async (req, res) => {
 // }
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
-    const { customerId } = req.params;
+    const { customerId } = req.params; // รับ customerId จาก URL params
     const currentPage = parseInt(req.query.page) || 1;
     const perPage = parseInt(req.query.per_page) || 10;
 
@@ -261,7 +261,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
     // Validate customerId
     if (!customerId) {
-        return res.status(400).json({ message: "กรุณาระบุ customerId" });
+        return res.status(400).json({ message: "กรุณาระบุ customerId ใน URL" });
     }
 
     try {
@@ -466,6 +466,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const EditEvent = async (req, res) => {
     const { eventId } = req.params;
