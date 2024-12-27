@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { adminLogin, createAdmin , createEvent, getAllEvents , getAdminData , logout } from '../controllers/adminController.js';
+import { adminLogin, createAdmin , createEvent, getAllEvents , getAdminData , logout , sendLineMessage } from '../controllers/adminController.js';
 import { verifyToken , verifySuperAdmin } from '../middleware/authMiddleware.js';
 
 const router = Router();
@@ -10,6 +10,7 @@ router.post('/createEvent', verifyToken, createEvent);
 router.get('/event/super_admin', verifySuperAdmin, getAllEvents);
 router.get('/auth', verifyToken, getAdminData);
 router.post('/logout', verifyToken, logout);
+router.post('/sendMessage', verifyToken, sendLineMessage);
 
 
 // เส้นทางสำหรับดู event ที่เป็น "special"

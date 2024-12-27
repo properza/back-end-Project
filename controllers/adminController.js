@@ -220,10 +220,10 @@ export const getAllEvents = async (req, res) => {
 
         const [eventResults] = await connection.query(eventQuery, eventQueryParams);
 
-        if (eventResults.length === 0) {
-            console.warn("No events found in final query.");
-            return res.status(404).json({ message: "No events found." });
-        }
+        // if (eventResults.length === 0) {
+        //     console.warn("No events found in final query.");
+        //     return res.status(404).json({ message: "No events found." });
+        // }
 
         const eventsWithStatus = eventResults.map(event => {
             try {
@@ -297,4 +297,30 @@ export const getAllEvents = async (req, res) => {
 
 export const logout = (req, res) => {
     return res.status(200).json({ message: "Logout successful. Please remove the token from the client side." });
+};
+
+//message line oa
+import axios from 'axios';
+
+export const sendLineMessage = async (req, res) => {
+    const { to, messages } = req.body;
+    const LineMessageurl = `https://api.line.me/v2/bot/message/push`;
+    const LineToken = process.env.LINE_TOKEN;
+
+    if (!LineToken) {
+        return res.status(500).json({ message: 'Authentication token is missing!' });
+    }
+
+    try {
+        const response = await axios.post(LineMessageurl, { to, messages }, {
+            headers: {
+                'Authorization': `Bearer ${LineToken}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        return res.status(200).json({ message: 'Message sent successfully', data: response.data });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        return res.status(500).json({ message: 'Failed to send message' });
+    }
 };
