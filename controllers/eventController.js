@@ -409,6 +409,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 endTime: formattedDates.endTime,
                 Nameplace: row.Nameplace,
                 province: row.province,
+                latitude: row.latitude,
+                longitude: row.longitude,
                 status: row.registrationImages.length > 0 ? 'เข้าร่วมสำเร็จ' : 'ไม่สำเร็จ',
                 registrationImages: row.registrationImages,
                 pointsEarned: row.pointsEarned || points
