@@ -252,7 +252,7 @@ export const registerCustomerForEvent = async (req, res) => {
 // }
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
-    const { customerId } = req.body; // รับ customerId จาก body
+    const { customerId } = req.params;
     const currentPage = parseInt(req.query.page) || 1;
     const perPage = parseInt(req.query.per_page) || 10;
 
@@ -261,7 +261,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
     // Validate customerId
     if (!customerId) {
-        return res.status(400).json({ message: "กรุณาระบุ customerId ใน request body" });
+        return res.status(400).json({ message: "กรุณาระบุ customerId" });
     }
 
     try {
