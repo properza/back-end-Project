@@ -148,38 +148,41 @@ export const getAllCustomers = async (req, res) => {
 
 // อัปโหลดรูปภาพหรือภาพถ่าย
 export const uploadFaceIdImage = async (req, res) => {
-    const { customer_id, face_image_url } = req.body;
-
-    if (!customer_id || !face_image_url) {
-        return res.status(400).json({ message: 'กรุณากรอก customer_id และ face_image_url ให้ครบถ้วน' });
+    const { customer_id } = req.body;
+    // ไฟล์อยู่ใน req.file
+    if (!customer_id || !req.file) {
+      return res.status(400).json({ message: "กรุณากรอก customer_id และ face_image_url ให้ครบถ้วน" });
     }
-
+  
+    // เก็บ path ไฟล์ใน DB
     try {
-        const [results] = await connection.query(
-            "SELECT * FROM customerinfo WHERE customer_id = ?",
-            [customer_id]
-        );
-
-        if (results.length === 0) {
-            return res.status(404).json({ message: "Customer not found" });
-        }
-
-        await connection.query(
-            "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
-            [face_image_url, customer_id]
-        );
-
-        const [updatedUserResults] = await connection.query(
-            "SELECT * FROM customerinfo WHERE customer_id = ?",
-            [customer_id]
-        );
-
-        return res.status(200).json({
-            message: "Face ID image uploaded successfully",
-            user: updatedUserResults[0],
-        });
+      const [results] = await connection.query(
+        "SELECT * FROM customerinfo WHERE customer_id = ?",
+        [customer_id]
+      );
+  
+      if (results.length === 0) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+  
+      await connection.query(
+        "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
+        [req.file.path, customer_id]
+      );
+  
+      const [updatedUserResults] = await connection.query(
+        "SELECT * FROM customerinfo WHERE customer_id = ?",
+        [customer_id]
+      );
+  
+      return res.status(200).json({
+        message: "Face ID image uploaded successfully",
+        user: updatedUserResults[0],
+      });
+  
     } catch (err) {
-        console.log(err);
-        return res.status(500).json({ message: "Internal server error" });
+      console.log(err);
+      return res.status(500).json({ message: "Internal server error" });
     }
-};
+  };
+  

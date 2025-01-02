@@ -6,6 +6,6 @@ const router = Router();
 router.get('/customers', getAllCustomers);
 router.post('/customerinfo', createOrLoginCustomer);
 router.put('/customerinfo/updateprofile',  updateCustomerProfile);
-router.put('/customerinfo/uploadfaceid', uploadFaceIdImage);
+router.put('/customerinfo/uploadfaceid', upload.single('face_image_url'), uploadFaceIdImage);
 
 export default router;
