@@ -182,9 +182,11 @@ export const uploadFaceIdImage = async (req, res) => {
 
         // สร้างโฟลเดอร์ใหม่ถ้าไม่มีอยู่
         await fsPromises.mkdir(newDir, { recursive: true });
+        console.log("Created directory:", newDir);
 
         // ย้ายไฟล์ไปยังโฟลเดอร์ใหม่
         await fsPromises.rename(oldPath, newPath);
+        console.log("Moved file to:", newPath);
 
         const baseUrl = "https://project-dev-0hj6.onrender.com/utils/gfiles";
         const fileUrl = `${baseUrl}/${req.file.filename}`;
@@ -194,6 +196,7 @@ export const uploadFaceIdImage = async (req, res) => {
             "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
             [fileUrl, customer_id]
         );
+        console.log("Updated database with faceUrl:", fileUrl);
 
         const [updatedUserResults] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
