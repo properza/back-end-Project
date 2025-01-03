@@ -153,7 +153,11 @@ export const getAllCustomers = async (req, res) => {
 export const uploadFaceIdImage = async (req, res) => {
     const { customer_id } = req.body;
 
+    console.log("Received upload request for customer_id:", customer_id);
+    console.log("Received file:", req.file);
+
     if (!customer_id || !req.file) {
+        console.log("Missing customer_id or file");
         return res.status(400).json({ message: "Please provide customer_id and upload an image file" });
     }
 
@@ -164,6 +168,7 @@ export const uploadFaceIdImage = async (req, res) => {
         );
 
         if (results.length === 0) {
+            console.log("Customer not found:", customer_id);
             return res.status(404).json({ message: "Customer not found" });
         }
 
@@ -171,6 +176,9 @@ export const uploadFaceIdImage = async (req, res) => {
         const oldPath = req.file.path;
         const newDir = path.resolve('utils/gfiles/');
         const newPath = path.join(newDir, req.file.filename);
+
+        console.log("Old path:", oldPath);
+        console.log("New path:", newPath);
 
         // สร้างโฟลเดอร์ใหม่ถ้าไม่มีอยู่
         await fsPromises.mkdir(newDir, { recursive: true });
@@ -192,6 +200,8 @@ export const uploadFaceIdImage = async (req, res) => {
             [customer_id]
         );
 
+        console.log("Upload successful for customer_id:", customer_id);
+
         return res.status(200).json({
             message: "Face ID image uploaded successfully",
             user: updatedUserResults[0],
@@ -202,4 +212,3 @@ export const uploadFaceIdImage = async (req, res) => {
         return res.status(500).json({ message: "Internal server error", error: err.message });
     }
 };
-  
