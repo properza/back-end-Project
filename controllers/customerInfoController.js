@@ -179,7 +179,7 @@ export const uploadFaceIdImage = async (req, res) => {
 
         // กำหนดเส้นทางใหม่สำหรับเก็บไฟล์ด้วย Path แบบ Absolute
         const oldPath = req.file.path;
-        const newDir = path.resolve(__dirname, '..', 'utils', 'gfiles');
+        const newDir = path.join(__dirname, '..', 'utils', 'gfiles');
         const newPath = path.join(newDir, req.file.filename);
 
         console.log("Old path:", oldPath);
