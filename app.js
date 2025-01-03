@@ -7,7 +7,13 @@ import path from 'path';
 
 const app = express();
 
-app.use(cors());
+const corsOptions = {
+    origin: 'http://localhost:3000', // แก้เป็นโดเมนของ frontend ของคุณ
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // เส้นทางต่างๆ

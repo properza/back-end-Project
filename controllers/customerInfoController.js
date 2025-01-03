@@ -2,6 +2,11 @@ import connection from "../model/database.js";
 import path from 'path';
 import fs from 'fs';
 import { promises as fsPromises } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export const createOrLoginCustomer = async (req, res) => {
     const { customer_id, name, picture } = req.body;
@@ -172,9 +177,9 @@ export const uploadFaceIdImage = async (req, res) => {
             return res.status(404).json({ message: "Customer not found" });
         }
 
-        // กำหนดเส้นทางใหม่สำหรับเก็บไฟล์
+        // กำหนดเส้นทางใหม่สำหรับเก็บไฟล์ด้วย Path แบบ Absolute
         const oldPath = req.file.path;
-        const newDir = path.resolve('utils/gfiles/');
+        const newDir = path.resolve(__dirname, '..', 'utils', 'gfiles');
         const newPath = path.join(newDir, req.file.filename);
 
         console.log("Old path:", oldPath);
