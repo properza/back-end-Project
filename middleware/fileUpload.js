@@ -1,7 +1,6 @@
 import multer from 'multer';
 import path from 'path';
 
-// ตั้งค่าการจัดเก็บไฟล์
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/'); // โฟลเดอร์สำหรับเก็บไฟล์
@@ -13,6 +12,14 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
-
-export default upload;
+export const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // จำกัดขนาดไฟล์ (5MB)
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error('Only .jpg, .jpeg, and .png formats are allowed!'));
+    }
+    cb(null, true);
+  },
+});
