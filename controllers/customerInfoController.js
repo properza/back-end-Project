@@ -1,4 +1,6 @@
 import connection from "../model/database.js";
+import path from 'path';
+import fs from 'fs';
 
 export const createOrLoginCustomer = async (req, res) => {
     const { customer_id, name, picture } = req.body;
@@ -149,12 +151,11 @@ export const getAllCustomers = async (req, res) => {
 // อัปโหลดรูปภาพหรือภาพถ่าย
 export const uploadFaceIdImage = async (req, res) => {
     const { customer_id } = req.body;
-    // ไฟล์อยู่ใน req.file
+  
     if (!customer_id || !req.file) {
-      return res.status(400).json({ message: "กรุณากรอก customer_id และ face_image_url ให้ครบถ้วน" });
+      return res.status(400).json({ message: "กรุณากรอก customer_id และอัปโหลดไฟล์รูปภาพ" });
     }
   
-    // เก็บ path ไฟล์ใน DB
     try {
       const [results] = await connection.query(
         "SELECT * FROM customerinfo WHERE customer_id = ?",
@@ -165,9 +166,24 @@ export const uploadFaceIdImage = async (req, res) => {
         return res.status(404).json({ message: "Customer not found" });
       }
   
+      // ย้ายไฟล์ไปยัง `utils/gfiles`
+      const oldPath = req.file.path;
+      const newDir = 'utils/gfiles/';
+      const newPath = path.join(newDir, req.file.filename);
+  
+      if (!fs.existsSync(newDir)) {
+        fs.mkdirSync(newDir, { recursive: true }); // สร้างโฟลเดอร์ถ้ายังไม่มี
+      }
+  
+      fs.renameSync(oldPath, newPath); // ย้ายไฟล์ไปยังตำแหน่งใหม่
+  
+      const baseUrl = "https://project-dev-0hj6.onrender.com/utils/gfiles";
+      const fileName = req.file.filename; // ชื่อไฟล์ใหม่
+      const fileUrl = `${baseUrl}/${fileName}`;
+  
       await connection.query(
         "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
-        [req.file.path, customer_id]
+        [fileUrl, customer_id]
       );
   
       const [updatedUserResults] = await connection.query(
@@ -181,7 +197,7 @@ export const uploadFaceIdImage = async (req, res) => {
       });
   
     } catch (err) {
-      console.log(err);
+      console.error(err);
       return res.status(500).json({ message: "Internal server error" });
     }
   };

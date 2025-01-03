@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
+import upload from '../middleware/fileUpload.js';
+
 import { createOrLoginCustomer, updateCustomerProfile, getAllCustomers , uploadFaceIdImage } from '../controllers/customerInfoController.js';
 
 const router = Router();
-const upload = multer({ dest: 'uploads/' }) 
+
 
 router.get('/customers', getAllCustomers);
 router.post('/customerinfo', createOrLoginCustomer);
