@@ -151,54 +151,53 @@ export const getAllCustomers = async (req, res) => {
 // อัปโหลดรูปภาพหรือภาพถ่าย
 export const uploadFaceIdImage = async (req, res) => {
     const { customer_id } = req.body;
-  
+
     if (!customer_id || !req.file) {
-      return res.status(400).json({ message: "กรุณากรอก customer_id และอัปโหลดไฟล์รูปภาพ" });
+        return res.status(400).json({ message: "Please provide customer_id and upload an image file" });
     }
-  
+
     try {
-      const [results] = await connection.query(
-        "SELECT * FROM customerinfo WHERE customer_id = ?",
-        [customer_id]
-      );
-  
-      if (results.length === 0) {
-        return res.status(404).json({ message: "Customer not found" });
-      }
-  
-      // ย้ายไฟล์ไปยัง `utils/gfiles`
-      const oldPath = req.file.path;
-      const newDir = 'utils/gfiles/';
-      const newPath = path.join(newDir, req.file.filename);
-  
-      if (!fs.existsSync(newDir)) {
-        fs.mkdirSync(newDir, { recursive: true }); // สร้างโฟลเดอร์ถ้ายังไม่มี
-      }
-  
-      fs.renameSync(oldPath, newPath); // ย้ายไฟล์ไปยังตำแหน่งใหม่
-  
-      const baseUrl = "https://project-dev-0hj6.onrender.com/utils/gfiles";
-      const fileName = req.file.filename; // ชื่อไฟล์ใหม่
-      const fileUrl = `${baseUrl}/${fileName}`;
-  
-      await connection.query(
-        "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
-        [fileUrl, customer_id]
-      );
-  
-      const [updatedUserResults] = await connection.query(
-        "SELECT * FROM customerinfo WHERE customer_id = ?",
-        [customer_id]
-      );
-  
-      return res.status(200).json({
-        message: "Face ID image uploaded successfully",
-        user: updatedUserResults[0],
-      });
-  
+        const [results] = await connection.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: "Customer not found" });
+        }
+
+        // Move file to utils/gfiles
+        const oldPath = req.file.path;
+        const newDir = 'utils/gfiles/';
+        const newPath = path.join(newDir, req.file.filename);
+
+        if (!fs.existsSync(newDir)) {
+            fs.mkdirSync(newDir, { recursive: true }); // Create folder if not exists
+        }
+
+        fs.renameSync(oldPath, newPath); // Move file
+
+        const baseUrl = "https://project-dev-0hj6.onrender.com/utils/gfiles";
+        const fileUrl = `${baseUrl}/${req.file.filename}`;
+
+        await connection.query(
+            "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
+            [fileUrl, customer_id]
+        );
+
+        const [updatedUserResults] = await connection.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        return res.status(200).json({
+            message: "Face ID image uploaded successfully",
+            user: updatedUserResults[0],
+        });
+
     } catch (err) {
-      console.error(err);
-      return res.status(500).json({ message: "Internal server error" });
+        console.error(err);
+        return res.status(500).json({ message: "Internal server error" });
     }
-  };
+};
   

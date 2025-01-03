@@ -4,8 +4,6 @@ import adminRoutes from './routes/admin.route.js'
 import eventRoutes from './routes/event.route.js';
 import cors from 'cors';
 import path from 'path';
-import { fileURLToPath } from 'url'; // ใช้เพื่อสร้าง __dirname
-
 
 const app = express();
 
@@ -19,5 +17,6 @@ app.use('/events', eventRoutes);
 
 // เส้นทาง Static
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/utils/gfiles', express.static(path.join(process.cwd(), 'utils/gfiles')));
 
 app.listen(process.env.port || 4000);
