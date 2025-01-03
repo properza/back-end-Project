@@ -6,9 +6,6 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url'; // ใช้เพื่อสร้าง __dirname
 
-// สร้าง __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -21,6 +18,6 @@ app.use('/customer', customerInfoRoutes);
 app.use('/events', eventRoutes);
 
 // เส้นทาง Static
-app.use('/utils/gfiles', express.static(path.join(__dirname, 'utils/gfiles')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.listen(process.env.port || 4000);
