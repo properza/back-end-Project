@@ -1,6 +1,7 @@
 import connection from "../model/database.js";
 import path from 'path';
 import fs from 'fs';
+import { promises as fsPromises } from 'fs';
 
 export const createOrLoginCustomer = async (req, res) => {
     const { customer_id, name, picture } = req.body;
@@ -166,20 +167,21 @@ export const uploadFaceIdImage = async (req, res) => {
             return res.status(404).json({ message: "Customer not found" });
         }
 
-        // Move file to utils/gfiles
+        // กำหนดเส้นทางใหม่สำหรับเก็บไฟล์
         const oldPath = req.file.path;
-        const newDir = 'utils/gfiles/';
+        const newDir = path.resolve('utils/gfiles/');
         const newPath = path.join(newDir, req.file.filename);
 
-        if (!fs.existsSync(newDir)) {
-            fs.mkdirSync(newDir, { recursive: true }); // Create folder if not exists
-        }
+        // สร้างโฟลเดอร์ใหม่ถ้าไม่มีอยู่
+        await fsPromises.mkdir(newDir, { recursive: true });
 
-        fs.renameSync(oldPath, newPath); // Move file
+        // ย้ายไฟล์ไปยังโฟลเดอร์ใหม่
+        await fsPromises.rename(oldPath, newPath);
 
         const baseUrl = "https://project-dev-0hj6.onrender.com/utils/gfiles";
         const fileUrl = `${baseUrl}/${req.file.filename}`;
 
+        // อัปเดต URL ของไฟล์ในฐานข้อมูล
         await connection.query(
             "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
             [fileUrl, customer_id]
@@ -196,8 +198,8 @@ export const uploadFaceIdImage = async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err);
-        return res.status(500).json({ message: "Internal server error" });
+        console.error("Error in uploadFaceIdImage:", err);
+        return res.status(500).json({ message: "Internal server error", error: err.message });
     }
 };
   
