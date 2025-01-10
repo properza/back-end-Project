@@ -369,3 +369,83 @@ export const redeemReward = async (req, res) => {
         return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
     }
 };
+
+export const getCustomerRewardHistory = async (req, res) => {
+    const { customerId } = req.params;  // ดึง customerId จาก params
+    const { page = 1, per_page = 10, status } = req.query; // รองรับ pagination และ filter by status
+
+    // ตรวจสอบว่า customerId ถูกส่งมา
+    if (!customerId) {
+        return res.status(400).json({ message: 'กรุณาส่ง customerId' });
+    }
+
+    // ตรวจสอบว่าหน้าปัจจุบันและจำนวนต่อหน้าถูกต้อง
+    const parsedPage = parseInt(page);
+    const parsedPerPage = parseInt(per_page);
+
+    if (isNaN(parsedPage) || parsedPage < 1) {
+        return res.status(400).json({ message: 'Invalid page number' });
+    }
+
+    if (isNaN(parsedPerPage) || parsedPerPage < 1) {
+        return res.status(400).json({ message: 'Invalid per_page number' });
+    }
+
+    const offset = (parsedPage - 1) * parsedPerPage;
+
+    // กรองสถานะ ถ้ามี (used, pending)
+    let whereClause = `WHERE cr.customer_id = ?`;
+    let queryParams = [customerId];
+
+    if (status) {
+        if (!['used', 'pending'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status filter. Use "used" or "pending"' });
+        }
+        whereClause += " AND cr.status = ?";
+        queryParams.push(status);
+    }
+
+    try {
+        // ตรวจสอบว่าลูกค้ามีอยู่จริง
+        const [customerRows] = await connection.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
+        if (customerRows.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบลูกค้าที่ต้องการ' });
+        }
+
+        // คำนวณจำนวนทั้งหมด (total records)
+        const countQuery = `SELECT COUNT(*) AS total FROM customer_rewards cr ${whereClause}`;
+        const [countResults] = await connection.query(countQuery, queryParams);
+        const totalRecords = countResults[0].total;
+        const totalPages = Math.ceil(totalRecords / parsedPerPage);
+
+        // ดึงข้อมูลประวัติการแลก reward ตามหน้า
+        const historyQuery = `
+            SELECT cr.id, cr.reward_id, cr.points_used, cr.amount, cr.status, cr.created_at, cr.updated_at, r.reward_name
+            FROM customer_rewards cr
+            JOIN rewards r ON cr.reward_id = r.id
+            ${whereClause}
+            ORDER BY cr.created_at DESC
+            LIMIT ? OFFSET ?
+        `;
+        const historyQueryParams = [...queryParams, parsedPerPage, offset];
+        const [historyResults] = await connection.query(historyQuery, historyQueryParams);
+
+        return res.status(200).json({
+            meta: {
+                total: totalRecords,
+                per_page: parsedPerPage,
+                current_page: parsedPage,
+                last_page: totalPages,
+                first_page: 1,
+                last_page_url: `/api/customer/historyrewards/${customerId}?page=${totalPages}&per_page=${parsedPerPage}`,
+                next_page_url: parsedPage < totalPages ? `/api/customer/historyrewards/${customerId}?page=${parsedPage + 1}&per_page=${parsedPerPage}` : null,
+                previous_page_url: parsedPage > 1 ? `/api/customer/historyrewards/${customerId}?page=${parsedPage - 1}&per_page=${parsedPerPage}` : null
+            },
+            data: historyResults,
+        });
+
+    } catch (error) {
+        console.error('Error fetching reward history:', error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+    }
+};
