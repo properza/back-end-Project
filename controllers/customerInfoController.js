@@ -220,3 +220,152 @@ export const uploadFaceIdImage = async (req, res) => {
         return res.status(500).json({ message: "Internal server error", error: err.message });
     }
 };
+
+export const getAvailableRewards = async (req, res) => {
+    let currentPage = parseInt(req.query.page) || 1;
+    let perPage = parseInt(req.query.per_page) || 10;
+    let canRedeem = req.query.can_redeem; // ตัวกรองเพิ่มเติม (ถ้ามี)
+
+    // การตรวจสอบข้อมูลแบบแมนนวล
+    if (req.query.page !== undefined && (isNaN(currentPage) || currentPage < 1)) {
+        return res.status(400).json({ message: 'Invalid page number' });
+    }
+
+    if (req.query.per_page !== undefined && (isNaN(perPage) || perPage < 1)) {
+        return res.status(400).json({ message: 'Invalid per_page number' });
+    }
+
+    if (canRedeem !== undefined && canRedeem !== 'true' && canRedeem !== 'false') {
+        return res.status(400).json({ message: 'Invalid can_redeem value. Must be "true" or "false"' });
+    }
+
+    try {
+        let countQuery = "SELECT COUNT(*) as total FROM rewards WHERE amount > 0";
+        let queryParams = [];
+
+        // ตัวกรองเพิ่มเติมถ้ามี
+        if (canRedeem !== undefined) {
+            countQuery += " AND can_redeem = ?";
+            queryParams.push(canRedeem === 'true' ? 1 : 0);
+        }
+
+        const [countResults] = await connection.query(countQuery, queryParams);
+        let totalRewards = countResults[0].total;
+
+        let totalPages = Math.ceil(totalRewards / perPage);
+        let offset = (currentPage - 1) * perPage;
+
+        let rewardQuery = "SELECT * FROM rewards WHERE amount > 0";
+        let rewardQueryParams = [];
+
+        if (canRedeem !== undefined) {
+            rewardQuery += " AND can_redeem = ?";
+            rewardQueryParams.push(canRedeem === 'true' ? 1 : 0);
+        }
+
+        rewardQuery += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+        rewardQueryParams.push(perPage, offset);
+
+        const [rewardResults] = await connection.query(rewardQuery, rewardQueryParams);
+
+        return res.status(200).json({
+            meta: {
+                total: totalRewards,
+                per_page: perPage,
+                current_page: currentPage,
+                last_page: totalPages,
+                first_page: 1,
+                first_page_url: `/?page=1`,
+                last_page_url: `/?page=${totalPages}`,
+                next_page_url: currentPage < totalPages ? `/?page=${currentPage + 1}` : null,
+                previous_page_url: currentPage > 1 ? `/?page=${currentPage - 1}` : null
+            },
+            data: rewardResults,
+        });
+    } catch (error) {
+        console.error("Error fetching rewards:", error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+    }
+};
+
+export const redeemReward = async (req, res) => {
+    const { customerId, rewardId } = req.body;
+
+    // ตรวจสอบข้อมูลที่จำเป็น
+    if (!customerId || !rewardId) {
+        return res.status(400).json({ message: 'กรุณาส่ง customerId และ rewardId' });
+    }
+
+    try {
+        // ตรวจสอบว่าลูกค้ามีอยู่จริงและมีแต้มเพียงพอ
+        const [customerRows] = await connection.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
+
+        if (customerRows.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบลูกค้าที่ต้องการ' });
+        }
+
+        const customer = customerRows[0];
+
+        // ตรวจสอบว่าลูกค้ามีแต้มเพียงพอ
+        if (customer.total_point < 0) { // This condition seems incorrect; likely should check against reward's points_required
+            return res.status(400).json({ message: 'แต้มของลูกค้าไม่เพียงพอ' });
+        }
+
+        // ตรวจสอบว่ารางวัลมีอยู่จริงและมีจำนวนที่ยังไม่หมด
+        const [rewardRows] = await connection.query('SELECT * FROM rewards WHERE id = ?', [rewardId]);
+
+        if (rewardRows.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบรางวัลที่ต้องการแลก' });
+        }
+
+        const reward = rewardRows[0];
+
+        // ตรวจสอบว่าแต้มของลูกค้ามากกว่าหรือเท่ากับ points_required
+        if (customer.total_point < reward.points_required) {
+            return res.status(400).json({ message: 'แต้มของลูกค้าไม่เพียงพอในการแลกรางวัลนี้' });
+        }
+
+        // ตรวจสอบว่ารางวัลยังมีจำนวน
+        if (reward.amount <= 0) {
+            return res.status(400).json({ message: 'รางวัลนี้หมดแล้ว' });
+        }
+
+        // เริ่ม Transaction
+        await connection.beginTransaction();
+
+        try {
+            // หักแต้มจากลูกค้า
+            await connection.query(
+                'UPDATE customerinfo SET total_point = total_point - ? WHERE customer_id = ?',
+                [reward.points_required, customerId]
+            );
+
+            // ลดจำนวนของรางวัล
+            await connection.query(
+                'UPDATE rewards SET amount = amount - 1 WHERE id = ?',
+                [rewardId]
+            );
+
+            // เพิ่มรายการแลกรางวัลลงใน customer_rewards
+            await connection.query(
+                'INSERT INTO customer_rewards (customer_id, reward_id, status) VALUES (?, ?, ?)',
+                [customerId, rewardId, 'used']
+            );
+
+            // Commit Transaction
+            await connection.commit();
+
+            return res.status(200).json({ message: 'แลกรางวัลสำเร็จแล้ว' });
+
+        } catch (err) {
+            // Rollback Transaction หากเกิดข้อผิดพลาด
+            await connection.rollback();
+            console.error('Transaction Error:', err);
+            return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแลกรางวัล' });
+        }
+
+    } catch (error) {
+        console.error("Error redeeming reward:", error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+    }
+};
