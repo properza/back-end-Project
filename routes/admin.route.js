@@ -13,7 +13,7 @@ router.post('/logout', verifyToken, logout);
 router.post('/sendMessage', verifyToken, sendLineMessage);
 router.post('/createReward', verifyToken, createReward);
 router.get('/rewards', verifyToken, getAllRewards);
-router.get('/rewards/:reward_id', verifyToken, updateReward);
+router.put('/rewards/:reward_id', verifyToken, updateReward);
 
 // เส้นทางสำหรับดู event ที่เป็น "special"
 router.get('/event/special', verifyToken, async (req, res) => {
