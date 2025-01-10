@@ -324,3 +324,204 @@ export const sendLineMessage = async (req, res) => {
         return res.status(500).json({ message: 'Failed to send message' });
     }
 };
+
+// controllers/adminController.js
+
+export const createReward = async (req, res) => {
+    const { reward_name, points_required, amount, can_redeem, rewardUrl } = req.body;
+
+    try {
+        // เพิ่มข้อมูลรางวัลใหม่ลงในตาราง rewards
+        const [result] = await connection.execute(
+            'INSERT INTO rewards (reward_name, points_required, amount, can_redeem, rewardUrl) VALUES (?, ?, ?, ?, ?)',
+            [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, rewardUrl || null]
+        );
+
+        console.log('Insert Reward Result:', result);
+
+        res.status(201).json({
+            message: 'สร้างรางวัลสำเร็จแล้ว',
+            reward: {
+                id: result.insertId,
+                reward_name,
+                points_required,
+                amount,
+                can_redeem: can_redeem !== undefined ? can_redeem : true,
+                rewardUrl: rewardUrl || null,
+                created_at: new Date()
+            }
+        });
+    } catch (err) {
+        console.error('Error creating reward:', err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรางวัล' });
+    }
+};
+
+
+export const getAllRewards = async (req, res) => {
+    let currentPage = parseInt(req.query.page) || 1;
+    let perPage = parseInt(req.query.per_page) || 10;
+    let canRedeem = req.query.can_redeem; // ตัวกรองเพิ่มเติม (ถ้ามี)
+
+    try {
+        let countQuery = "SELECT COUNT(*) as total FROM rewards WHERE 1=1";
+        let queryParams = [];
+
+        // ตัวกรองเพิ่มเติมถ้ามี
+        if (canRedeem !== undefined) {
+            countQuery += " AND can_redeem = ?";
+            queryParams.push(canRedeem === 'true' ? 1 : 0);
+        }
+
+        const [countResults] = await connection.query(countQuery, queryParams);
+        let totalRewards = countResults[0].total;
+
+        let totalPages = Math.ceil(totalRewards / perPage);
+        let offset = (currentPage - 1) * perPage;
+
+        let rewardQuery = "SELECT * FROM rewards WHERE 1=1";
+        let rewardQueryParams = [];
+
+        if (canRedeem !== undefined) {
+            rewardQuery += " AND can_redeem = ?";
+            rewardQueryParams.push(canRedeem === 'true' ? 1 : 0);
+        }
+
+        rewardQuery += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+        rewardQueryParams.push(perPage, offset);
+
+        const [rewardResults] = await connection.query(rewardQuery, rewardQueryParams);
+
+        return res.status(200).json({
+            meta: {
+                total: totalRewards,
+                per_page: perPage,
+                current_page: currentPage,
+                last_page: totalPages,
+                first_page: 1,
+                first_page_url: `/?page=1`,
+                last_page_url: `/?page=${totalPages}`,
+                next_page_url: currentPage < totalPages ? `/?page=${currentPage + 1}` : null,
+                previous_page_url: currentPage > 1 ? `/?page=${currentPage - 1}` : null
+            },
+            data: rewardResults,
+        });
+    } catch (error) {
+        console.error("Error fetching rewards:", error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+    }
+};
+
+export const updateReward = async (req, res) => {
+    const { reward_id } = req.params;
+    const { reward_name, points_required, amount, can_redeem, rewardUrl } = req.body;
+
+    const id = parseInt(reward_id);
+    if (isNaN(id) || id < 1) {
+        return res.status(400).json({ message: 'reward_id ต้องเป็นจำนวนเต็มที่ถูกต้อง' });
+    }
+
+    // ตรวจสอบว่ามีฟิลด์ที่จะอัปเดต
+    if (!reward_name && points_required === undefined && amount === undefined && can_redeem === undefined && !rewardUrl) {
+        return res.status(400).json({ message: 'ต้องการข้อมูลอย่างน้อยหนึ่งฟิลด์เพื่อการแก้ไข' });
+    }
+
+    // ตรวจสอบประเภทข้อมูลแบบแมนนวล
+    if (reward_name && typeof reward_name !== 'string') {
+        return res.status(400).json({ message: 'reward_name ต้องเป็นสตริง' });
+    }
+
+    if (points_required !== undefined && (typeof points_required !== 'number' || points_required < 0)) {
+        return res.status(400).json({ message: 'points_required ต้องเป็นจำนวนเต็มที่ไม่ติดลบ' });
+    }
+
+    if (amount !== undefined && (typeof amount !== 'number' || amount < 0)) {
+        return res.status(400).json({ message: 'amount ต้องเป็นจำนวนเต็มที่ไม่ติดลบ' });
+    }
+
+    if (can_redeem !== undefined && typeof can_redeem !== 'boolean') {
+        return res.status(400).json({ message: 'can_redeem ต้องเป็นบูลีน' });
+    }
+
+    if (rewardUrl !== undefined && typeof rewardUrl !== 'string') {
+        return res.status(400).json({ message: 'rewardUrl ต้องเป็นสตริงที่เป็น URL' });
+    }
+
+    try {
+        // ตรวจสอบว่ารางวัลมีอยู่จริง
+        const [existingReward] = await connection.query('SELECT * FROM rewards WHERE id = ?', [id]);
+        if (!existingReward || existingReward.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบรางวัลที่ต้องการแก้ไข' });
+        }
+
+        // สร้างคำสั่ง UPDATE แบบไดนามิก
+        let updateFields = [];
+        let queryParams = [];
+
+        if (reward_name) {
+            updateFields.push('reward_name = ?');
+            queryParams.push(reward_name);
+        }
+        if (points_required !== undefined) {
+            updateFields.push('points_required = ?');
+            queryParams.push(points_required);
+        }
+        if (amount !== undefined) {
+            updateFields.push('amount = ?');
+            queryParams.push(amount);
+        }
+        if (can_redeem !== undefined) {
+            updateFields.push('can_redeem = ?');
+            queryParams.push(can_redeem ? 1 : 0);
+        }
+        if (rewardUrl !== undefined) {
+            updateFields.push('rewardUrl = ?');
+            queryParams.push(rewardUrl);
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({ message: 'ไม่มีฟิลด์ที่จะทำการแก้ไข' });
+        }
+
+        const updateQuery = `UPDATE rewards SET ${updateFields.join(', ')} WHERE id = ?`;
+        queryParams.push(id);
+
+        const [result] = await connection.execute(updateQuery, queryParams);
+
+        res.status(200).json({
+            message: 'แก้ไขรางวัลสำเร็จแล้ว',
+            affectedRows: result.affectedRows
+        });
+    } catch (err) {
+        console.error('Error updating reward:', err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขรางวัล' });
+    }
+};
+
+export const deleteReward = async (req, res) => {
+    const { reward_id } = req.params;
+
+    const id = parseInt(reward_id);
+    if (isNaN(id) || id < 1) {
+        return res.status(400).json({ message: 'reward_id ต้องเป็นจำนวนเต็มที่ถูกต้อง' });
+    }
+
+    try {
+        // ตรวจสอบว่ารางวัลมีอยู่จริง
+        const [existingReward] = await connection.query('SELECT * FROM rewards WHERE id = ?', [id]);
+        if (!existingReward || existingReward.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบรางวัลที่ต้องการลบ' });
+        }
+
+        // ลบรางวัล
+        const [result] = await connection.execute('DELETE FROM rewards WHERE id = ?', [id]);
+
+        res.status(200).json({
+            message: 'ลบรางวัลสำเร็จแล้ว',
+            affectedRows: result.affectedRows
+        });
+    } catch (err) {
+        console.error('Error deleting reward:', err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบรางวัล' });
+    }
+};
