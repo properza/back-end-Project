@@ -11,12 +11,6 @@ router.post('/customerinfo', createOrLoginCustomer);
 router.put('/customerinfo/updateprofile',  updateCustomerProfile);
 router.put('/customerinfo/uploadfaceid', upload.single('face_image_url'), uploadFaceIdImage);
 router.get('/rewards', getAvailableRewards);
-router.post('/rewards/redeem', 
-    [
-        body('customerId').isString().notEmpty().withMessage('customerId ต้องเป็นสตริงและไม่ว่างเปล่า'),
-        body('rewardId').isInt({ min: 1 }).withMessage('rewardId ต้องเป็นจำนวนเต็มที่มากกว่า 0')
-    ],
-    redeemReward
-);
+router.post('/rewards/redeem',redeemReward);
 
 export default router;
