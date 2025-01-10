@@ -127,7 +127,7 @@ export const getAllCustomers = async (req, res) => {
             customerQuery += " WHERE st_tpye = ?";
         }
         customerQuery += " LIMIT ? OFFSET ?";
-        
+
         queryParams.push(perPage, offset);
 
         const [customerResults] = await connection.query(customerQuery, queryParams);
@@ -447,5 +447,40 @@ export const getCustomerRewardHistory = async (req, res) => {
     } catch (error) {
         console.error('Error fetching reward history:', error);
         return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+    }
+};
+
+export const useReward = async (req, res) => {
+    const { customerId, rewardId } = req.body;
+
+    // ตรวจสอบข้อมูลที่จำเป็น
+    if (!customerId || !rewardId) {
+        return res.status(400).json({ message: 'กรุณาส่ง customerId และ rewardId' });
+    }
+
+    try {
+        // ตรวจสอบว่ามีรายการแลกรางวัลที่อยู่ในสถานะ 'pending'
+        const [rewardRows] = await connection.query(
+            'SELECT * FROM customer_rewards WHERE customer_id = ? AND reward_id = ? AND status = ?',
+            [customerId, rewardId, 'pending']
+        );
+
+        if (rewardRows.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบรายการแลกรางวัลที่ต้องการใช้งาน หรือรางวัลนั้นไม่อยู่ในสถานะ pending' });
+        }
+
+        const rewardEntry = rewardRows[0];
+
+        // เปลี่ยนสถานะเป็น 'used' และบันทึกเวลาที่ใช้
+        await connection.query(
+            'UPDATE customer_rewards SET status = ?, used_at = ? WHERE id = ?',
+            ['used', new Date(), rewardEntry.id]
+        );
+
+        return res.status(200).json({ message: 'ใช้รางวัลสำเร็จแล้ว', status: 'used' });
+
+    } catch (error) {
+        console.error("Error using reward:", error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดในการใช้รางวัล" });
     }
 };
