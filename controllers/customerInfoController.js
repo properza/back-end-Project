@@ -371,8 +371,6 @@ export const redeemReward = async (req, res) => {
 };
 
 // controllers/customerInfoController.js
-// controllers/customerInfoController.js
-
 export const getCustomerRewardHistory = async (req, res) => {
     const { customerId } = req.params;  // ดึง customerId จาก params
     const { page = 1, per_page = 10, status } = req.query; // รองรับ pagination และ filter by status
@@ -421,6 +419,15 @@ export const getCustomerRewardHistory = async (req, res) => {
         const totalRecords = countResults[0].total;
         const totalPages = Math.ceil(totalRecords / parsedPerPage);
 
+        // สร้าง Base URL สำหรับการสร้าง Absolute URLs
+        const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+        const constructUrl = (page) => {
+            const params = new URLSearchParams(req.query);
+            params.set('page', page);
+            params.set('per_page', parsedPerPage); // รวม per_page ใน URLs
+            return `${baseUrl}?${params.toString()}`;
+        };
+
         // ดึงข้อมูลประวัติการแลก reward ตามหน้า
         const historyQuery = `
             SELECT cr.id, cr.reward_id, cr.points_used, cr.amount, cr.status, cr.created_at, cr.updated_at, r.reward_name
@@ -440,10 +447,10 @@ export const getCustomerRewardHistory = async (req, res) => {
                 current_page: parsedPage,
                 last_page: totalPages,
                 first_page: 1,
-                first_page_url: `/?page=1&per_page=${parsedPerPage}`,
-                last_page_url: `/?page=${totalPages}&per_page=${parsedPerPage}`,
-                next_page_url: parsedPage < totalPages ? `/api/customer/historyrewards/${customerId}?page=${parsedPage + 1}&per_page=${parsedPerPage}` : null,
-                previous_page_url: parsedPage > 1 ? `/api/customer/historyrewards/${customerId}?page=${parsedPage - 1}&per_page=${parsedPerPage}` : null
+                first_page_url: constructUrl(1),
+                last_page_url: constructUrl(totalPages),
+                next_page_url: parsedPage < totalPages ? constructUrl(parsedPage + 1) : null,
+                previous_page_url: parsedPage > 1 ? constructUrl(parsedPage - 1) : null
             },
             data: historyResults.length > 0 ? historyResults : [],
         });
@@ -453,6 +460,7 @@ export const getCustomerRewardHistory = async (req, res) => {
         return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
     }
 };
+
 
 
 export const useReward = async (req, res) => {
