@@ -437,12 +437,12 @@ export const getCustomerRewardHistory = async (req, res) => {
                 per_page: parsedPerPage,
                 current_page: parsedPage,
                 last_page: totalPages,
-                first_page: 1,
-                last_page_url: `/api/customer/historyrewards/${customerId}?page=${totalPages}&per_page=${parsedPerPage}`,
+                first_page_url: `/?page=1`,
+                last_page_url: `/?page=${totalPages}`,
                 next_page_url: parsedPage < totalPages ? `/api/customer/historyrewards/${customerId}?page=${parsedPage + 1}&per_page=${parsedPerPage}` : null,
                 previous_page_url: parsedPage > 1 ? `/api/customer/historyrewards/${customerId}?page=${parsedPage - 1}&per_page=${parsedPerPage}` : null
             },
-            data: historyResults,
+            data: historyResults.length > 0 ? historyResults : [],
         });
 
     } catch (error) {
