@@ -530,8 +530,8 @@ export const deleteReward = async (req, res) => {
 export const getAdmins = async (req, res) => {
     const { page = 1, per_page = 10 } = req.query; // รับค่าหน้าและจำนวนต่อหน้า
     const parsedPage = parseInt(page);
-    const parsedPerPage = Math.min(parseInt(per_page), 100); // ตั้งค่าขีดจำกัดสูงสุดสำหรับ per_page
-    
+    const parsedPerPage = parseInt(per_page);
+
     // ตรวจสอบความถูกต้องของค่า page และ per_page
     if (isNaN(parsedPage) || parsedPage < 1) {
         return res.status(400).json({ message: 'Invalid page number' });
@@ -555,7 +555,7 @@ export const getAdmins = async (req, res) => {
             SELECT id, username, firstname, lastname, role 
             FROM admins 
             WHERE role != ? 
-            ORDER BY created_at DESC 
+            ORDER BY id DESC 
             LIMIT ? OFFSET ?
         `;
         const [admins] = await connection.query(adminsQuery, ['super_admin', parsedPerPage, offset]);

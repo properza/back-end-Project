@@ -231,26 +231,6 @@ export const registerCustomerForEvent = async (req, res) => {
     }
 };
 
-// function mapEventData(eventDetails) {
-//     let imagesArray = [];
-//     if (eventDetails.images) {
-//         imagesArray = JSON.parse(eventDetails.images);
-//     }
-
-//     return {
-//         eventId: eventDetails.id,
-//         activityName: eventDetails.activityName,
-//         course: eventDetails.course,
-//         startDate: eventDetails.startDate,
-//         endDate: eventDetails.endDate,
-//         startTime: eventDetails.startTime,
-//         endTime: eventDetails.endTime,
-//         Nameplace: eventDetails.Nameplace,
-//         province: eventDetails.province,
-//         images: imagesArray
-//     };
-// }
-
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
     const currentPage = parseInt(req.query.page) || 1;
