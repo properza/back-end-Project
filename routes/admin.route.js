@@ -1,6 +1,12 @@
 import { Router } from 'express';
-import { adminLogin, createAdmin , createEvent, getAllEvents , getAdminData , logout , sendLineMessage , createReward , getAllRewards , updateReward } from '../controllers/adminController.js';
-import { verifyToken , verifySuperAdmin } from '../middleware/authMiddleware.js';
+import {
+    adminLogin, createAdmin, createEvent,
+    getAllEvents, getAdminData, logout,
+    sendLineMessage, createReward, getAllRewards,
+    updateReward, getAdmins, updateAdmin,
+    deleteAdmin
+} from '../controllers/adminController.js';
+import { verifyToken, verifySuperAdmin } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
@@ -14,6 +20,10 @@ router.post('/sendMessage', verifyToken, sendLineMessage);
 router.post('/createReward', verifyToken, createReward);
 router.get('/rewards', verifyToken, getAllRewards);
 router.put('/rewards/:reward_id', verifyToken, updateReward);
+
+router.get('/admins/getadmin', verifySuperAdmin, getAdmins);
+router.put('/admins/:adminId', verifySuperAdmin, updateAdmin);
+router.delete('/admins/:adminId', verifySuperAdmin, deleteAdmin);
 
 // เส้นทางสำหรับดู event ที่เป็น "special"
 router.get('/event/special', verifyToken, async (req, res) => {

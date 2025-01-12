@@ -525,3 +525,183 @@ export const deleteReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบรางวัล' });
     }
 };
+
+//all admin 
+export const getAdmins = async (req, res) => {
+    const { page = 1, per_page = 10 } = req.query; // รับค่าหน้าและจำนวนต่อหน้า
+    const parsedPage = parseInt(page);
+    const parsedPerPage = Math.min(parseInt(per_page), 100); // ตั้งค่าขีดจำกัดสูงสุดสำหรับ per_page
+    
+    // ตรวจสอบความถูกต้องของค่า page และ per_page
+    if (isNaN(parsedPage) || parsedPage < 1) {
+        return res.status(400).json({ message: 'Invalid page number' });
+    }
+
+    if (isNaN(parsedPerPage) || parsedPerPage < 1) {
+        return res.status(400).json({ message: 'Invalid per_page number' });
+    }
+
+    const offset = (parsedPage - 1) * parsedPerPage;
+
+    try {
+        // คำนวณจำนวนทั้งหมดของแอดมินที่ไม่ใช่ super_admin
+        const countQuery = "SELECT COUNT(*) AS total FROM admins WHERE role != ?";
+        const [countResults] = await connection.query(countQuery, ['super_admin']);
+        const totalAdmins = countResults[0].total;
+        const totalPages = Math.ceil(totalAdmins / parsedPerPage);
+
+        // ดึงข้อมูลแอดมินที่ไม่ใช่ super_admin ตามหน้าและจำนวนต่อหน้า
+        const adminsQuery = `
+            SELECT id, username, firstname, lastname, role 
+            FROM admins 
+            WHERE role != ? 
+            ORDER BY created_at DESC 
+            LIMIT ? OFFSET ?
+        `;
+        const [admins] = await connection.query(adminsQuery, ['super_admin', parsedPerPage, offset]);
+
+        // สร้างข้อมูล meta สำหรับการแบ่งหน้า
+        const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+        const constructUrl = (page) => {
+            const params = new URLSearchParams(req.query);
+            params.set('page', page);
+            return `${baseUrl}?${params.toString()}`;
+        };
+
+        const meta = {
+            total: totalAdmins,
+            per_page: parsedPerPage,
+            current_page: parsedPage,
+            last_page: totalPages,
+            first_page: 1,
+            first_page_url: constructUrl(1),
+            last_page_url: constructUrl(totalPages),
+            next_page_url: parsedPage < totalPages ? constructUrl(parsedPage + 1) : null,
+            previous_page_url: parsedPage > 1 ? constructUrl(parsedPage - 1) : null
+        };
+
+        res.status(200).json({
+            meta: meta,
+            data: admins
+        });
+
+    } catch (err) {
+        console.error('Error fetching non-super_admins:', err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลแอดมิน' });
+    }
+};
+
+export const updateAdmin = async (req, res) => {
+    const { adminId } = req.params;
+    const { username, password, firstname, lastname } = req.body;
+
+    // ตรวจสอบว่า adminId เป็นตัวเลขและมีค่ามากกว่า 0
+    const id = parseInt(adminId);
+    if (isNaN(id) || id < 1) {
+        return res.status(400).json({ message: 'adminId ต้องเป็นจำนวนเต็มที่ถูกต้อง' });
+    }
+
+    // ตรวจสอบว่ามีข้อมูลที่จะอัปเดต
+    if (!username && !password && !firstname && !lastname) {
+        return res.status(400).json({ message: 'ต้องการข้อมูลอย่างน้อยหนึ่งฟิลด์เพื่อการอัปเดต' });
+    }
+
+    try {
+        // ตรวจสอบว่ามีแอดมินที่ต้องการอัปเดตอยู่จริง
+        const [existingAdmin] = await connection.query('SELECT * FROM admins WHERE id = ?', [id]);
+        if (!existingAdmin || existingAdmin.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบแอดมินที่ต้องการอัปเดต' });
+        }
+
+        // ถ้ามีการอัปเดต username ให้ตรวจสอบว่าไม่มีแอดมินอื่นที่มี username เดียวกัน
+        if (username) {
+            const [usernameCheck] = await connection.query('SELECT * FROM admins WHERE username = ? AND id != ?', [username, id]);
+            if (usernameCheck.length > 0) {
+                return res.status(400).json({ message: 'username นี้ถูกใช้แล้ว' });
+            }
+        }
+
+        // เตรียมข้อมูลสำหรับการอัปเดต
+        let updateFields = [];
+        let queryParams = [];
+
+        if (username) {
+            updateFields.push('username = ?');
+            queryParams.push(username);
+        }
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 8);
+            updateFields.push('password = ?');
+            queryParams.push(hashedPassword);
+        }
+        if (firstname) {
+            updateFields.push('firstname = ?');
+            queryParams.push(firstname);
+        }
+        if (lastname) {
+            updateFields.push('lastname = ?');
+            queryParams.push(lastname);
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({ message: 'ไม่มีฟิลด์ที่จะทำการอัปเดต' });
+        }
+
+        const updateQuery = `UPDATE admins SET ${updateFields.join(', ')} WHERE id = ?`;
+        queryParams.push(id);
+
+        const [result] = await connection.execute(updateQuery, queryParams);
+
+        res.status(200).json({
+            message: 'อัปเดตแอดมินสำเร็จแล้ว',
+            affectedRows: result.affectedRows
+        });
+
+    } catch (err) {
+        console.error('Error updating admin:', err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตแอดมิน' });
+    }
+};
+
+export const deleteAdmin = async (req, res) => {
+    const { adminId } = req.params;
+
+    // ตรวจสอบว่า adminId เป็นตัวเลขและมีค่ามากกว่า 0
+    const id = parseInt(adminId);
+    if (isNaN(id) || id < 1) {
+        return res.status(400).json({ message: 'adminId ต้องเป็นจำนวนเต็มที่ถูกต้อง' });
+    }
+
+    try {
+        // ตรวจสอบว่ามีแอดมินที่ต้องการลบอยู่จริง
+        const [existingAdmin] = await connection.query('SELECT * FROM admins WHERE id = ?', [id]);
+        if (!existingAdmin || existingAdmin.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบแอดมินที่ต้องการลบ' });
+        }
+
+        const admin = existingAdmin[0];
+
+        // ไม่อนุญาตให้ลบแอดมินที่เป็น super_admin
+        if (admin.role === 'super_admin') {
+            return res.status(403).json({ message: 'ไม่สามารถลบแอดมินที่เป็น super_admin ได้' });
+        }
+
+        // ตรวจสอบว่ามีแอดมินอื่นที่เป็น super_admin อยู่เสมอ
+        const [superAdmins] = await connection.query('SELECT * FROM admins WHERE role = ?', ['super_admin']);
+        if (superAdmins.length === 0) {
+            return res.status(400).json({ message: 'ต้องมีแอดมินที่เป็น super_admin อย่างน้อยหนึ่งคนเสมอ' });
+        }
+
+        // ลบแอดมิน
+        const [result] = await connection.execute('DELETE FROM admins WHERE id = ?', [id]);
+
+        res.status(200).json({
+            message: 'ลบแอดมินสำเร็จแล้ว',
+            affectedRows: result.affectedRows
+        });
+
+    } catch (err) {
+        console.error('Error deleting admin:', err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบแอดมิน' });
+    }
+};
