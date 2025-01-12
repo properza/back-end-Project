@@ -574,8 +574,8 @@ export const getAdmins = async (req, res) => {
             current_page: parsedPage,
             last_page: totalPages,
             first_page: 1,
-            first_page_url: constructUrl(1),
-            last_page_url: constructUrl(totalPages),
+            first_page_url: `/?page=1`,
+            last_page_url: `/?page=${totalPages}`,
             next_page_url: parsedPage < totalPages ? constructUrl(parsedPage + 1) : null,
             previous_page_url: parsedPage > 1 ? constructUrl(parsedPage - 1) : null
         };
