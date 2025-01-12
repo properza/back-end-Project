@@ -424,7 +424,7 @@ export const getCustomerRewardHistory = async (req, res) => {
             FROM customer_rewards cr
             JOIN rewards r ON cr.reward_id = r.id
             ${whereClause}
-            ORDER BY cr.created_at DESC
+            ORDER BY cr.id DESC
             LIMIT ? OFFSET ?
         `;
         const historyQueryParams = [...queryParams, parsedPerPage, offset];
