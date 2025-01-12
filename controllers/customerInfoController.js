@@ -371,6 +371,8 @@ export const redeemReward = async (req, res) => {
 };
 
 // controllers/customerInfoController.js
+// controllers/customerInfoController.js
+
 export const getCustomerRewardHistory = async (req, res) => {
     const { customerId } = req.params;  // ดึง customerId จาก params
     const { page = 1, per_page = 10, status } = req.query; // รองรับ pagination และ filter by status
@@ -382,7 +384,7 @@ export const getCustomerRewardHistory = async (req, res) => {
 
     // ตรวจสอบว่าหน้าปัจจุบันและจำนวนต่อหน้าถูกต้อง
     const parsedPage = parseInt(page);
-    const parsedPerPage = parseInt(per_page);
+    const parsedPerPage = Math.min(parseInt(per_page), 100); // ตั้งค่าขีดจำกัดสูงสุดสำหรับ per_page
 
     if (isNaN(parsedPage) || parsedPage < 1) {
         return res.status(400).json({ message: 'Invalid page number' });
@@ -437,8 +439,9 @@ export const getCustomerRewardHistory = async (req, res) => {
                 per_page: parsedPerPage,
                 current_page: parsedPage,
                 last_page: totalPages,
-                first_page_url: `/?page=1`,
-                last_page_url: `/?page=${totalPages}`,
+                first_page: 1,
+                first_page_url: `/?page=1&per_page=${parsedPerPage}`,
+                last_page_url: `/?page=${totalPages}&per_page=${parsedPerPage}`,
                 next_page_url: parsedPage < totalPages ? `/api/customer/historyrewards/${customerId}?page=${parsedPage + 1}&per_page=${parsedPerPage}` : null,
                 previous_page_url: parsedPage > 1 ? `/api/customer/historyrewards/${customerId}?page=${parsedPage - 1}&per_page=${parsedPerPage}` : null
             },
@@ -450,6 +453,7 @@ export const getCustomerRewardHistory = async (req, res) => {
         return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
     }
 };
+
 
 export const useReward = async (req, res) => {
     const { customerId, rewardId } = req.body;
