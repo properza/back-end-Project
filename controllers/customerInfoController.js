@@ -370,6 +370,7 @@ export const redeemReward = async (req, res) => {
     }
 };
 
+// controllers/customerInfoController.js
 export const getCustomerRewardHistory = async (req, res) => {
     const { customerId } = req.params;  // ดึง customerId จาก params
     const { page = 1, per_page = 10, status } = req.query; // รองรับ pagination และ filter by status
@@ -424,7 +425,7 @@ export const getCustomerRewardHistory = async (req, res) => {
             FROM customer_rewards cr
             JOIN rewards r ON cr.reward_id = r.id
             ${whereClause}
-            ORDER BY cr.id DESC
+            ORDER BY cr.created_at DESC
             LIMIT ? OFFSET ?
         `;
         const historyQueryParams = [...queryParams, parsedPerPage, offset];
