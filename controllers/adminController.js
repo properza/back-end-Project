@@ -160,6 +160,7 @@ export const getAllEvents = async (req, res) => {
     let perPage = parseInt(req.query.per_page) || 10;
     let eventType = req.query.event_type || '';
     let status = req.query.status || '';
+    let showBefore = req.query.before === 'true';
 
     const timezone = 'Asia/Bangkok';
     const currentTime = DateTime.now().setZone(timezone);
@@ -169,21 +170,31 @@ export const getAllEvents = async (req, res) => {
         let countQuery = "SELECT COUNT(*) as total FROM event WHERE 1=1";
         let queryParams = [];
 
+        // กรณี event_type
         if (eventType) {
             countQuery += " AND event_type = ?";
             queryParams.push(eventType);
         }
 
-        if (status) {
-            if (status === 'complete') {
-                countQuery += " AND CONCAT(endDate, ' ', endTime) < ?";
-                queryParams.push(currentTimeStr);
-            } else if (status === 'active') {
-                countQuery += " AND CONCAT(startDate, ' ', startTime) <= ? AND CONCAT(endDate, ' ', endTime) >= ?";
-                queryParams.push(currentTimeStr, currentTimeStr);
-            } else if (status === 'inactive') {
-                countQuery += " AND CONCAT(startDate, ' ', startTime) > ?";
-                queryParams.push(currentTimeStr);
+        // ถ้ามี before => ให้ข้าม status แล้วใช้เงื่อนไข before
+        if (showBefore) {
+            // แสดงเฉพาะอีเวนต์ที่ end >= now => ไม่จบ
+            countQuery += " AND CONCAT(endDate, ' ', endTime) >= ?";
+            queryParams.push(currentTimeStr);
+        } 
+        else {
+            // ถ้าไม่มี before => ใช้เงื่อนไข status ปกติ
+            if (status) {
+                if (status === 'complete') {
+                    countQuery += " AND CONCAT(endDate, ' ', endTime) < ?";
+                    queryParams.push(currentTimeStr);
+                } else if (status === 'active') {
+                    countQuery += " AND CONCAT(startDate, ' ', startTime) <= ? AND CONCAT(endDate, ' ', endTime) >= ?";
+                    queryParams.push(currentTimeStr, currentTimeStr);
+                } else if (status === 'inactive') {
+                    countQuery += " AND CONCAT(startDate, ' ', startTime) > ?";
+                    queryParams.push(currentTimeStr);
+                }
             }
         }
 
@@ -201,63 +212,65 @@ export const getAllEvents = async (req, res) => {
             eventQueryParams.push(eventType);
         }
 
-        if (status) {
-            if (status === 'inactive') {
-                eventQuery += " AND CONCAT(startDate, ' ', startTime) > ?";
-                eventQueryParams.push(currentTimeStr);
-            } else if (status === 'active') {
-                eventQuery += " AND CONCAT(startDate, ' ', startTime) <= ? AND CONCAT(endDate, ' ', endTime) >= ?";
-                eventQueryParams.push(currentTimeStr, currentTimeStr);
-            } else if (status === 'complete') {
-                eventQuery += " AND CONCAT(endDate, ' ', endTime) < ?";
-                eventQueryParams.push(currentTimeStr);
+        if (showBefore) {
+            // แสดงเฉพาะอีเวนต์ที่ end >= now (ไม่จบ)
+            eventQuery += " AND CONCAT(endDate, ' ', endTime) >= ?";
+            eventQueryParams.push(currentTimeStr);
+        }
+        else {
+            // ใช้ status ปกติ
+            if (status) {
+                if (status === 'inactive') {
+                    eventQuery += " AND CONCAT(startDate, ' ', startTime) > ?";
+                    eventQueryParams.push(currentTimeStr);
+                } else if (status === 'active') {
+                    eventQuery += " AND CONCAT(startDate, ' ', startTime) <= ? AND CONCAT(endDate, ' ', endTime) >= ?";
+                    eventQueryParams.push(currentTimeStr, currentTimeStr);
+                } else if (status === 'complete') {
+                    eventQuery += " AND CONCAT(endDate, ' ', endTime) < ?";
+                    eventQueryParams.push(currentTimeStr);
+                }
             }
         }
 
+        // เรียงลำดับและแบ่งหน้า
         eventQuery += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
         eventQueryParams.push(perPage, offset);
 
-
         const [eventResults] = await connection.query(eventQuery, eventQueryParams);
-
-        // if (eventResults.length === 0) {
-        //     console.warn("No events found in final query.");
-        //     return res.status(404).json({ message: "No events found." });
-        // }
-
         const eventsWithStatus = eventResults.map(event => {
             try {
                 const startDate = typeof event.startDate === "string" 
                     ? event.startDate 
                     : event.startDate.toISOString(); 
-        
+
                 const endDate = typeof event.endDate === "string" 
                     ? event.endDate 
                     : event.endDate.toISOString();
-        
+
                 if (!event.startTime || typeof event.startTime !== "string" || 
                     !event.endTime || typeof event.endTime !== "string") {
                     console.error(`Invalid Start/End Time for Event ID: ${event.id}`);
                     return { ...event, status: "error" };
                 }
-        
+
                 const startDateTime = DateTime.fromFormat(
                     `${startDate.split('T')[0]} ${event.startTime}`, 
                     "yyyy-MM-dd HH:mm:ss",
                     { zone: timezone }
                 );
-        
+
                 const endDateTime = DateTime.fromFormat(
                     `${endDate.split('T')[0]} ${event.endTime}`, 
                     "yyyy-MM-dd HH:mm:ss",
                     { zone: timezone }
                 );
-        
+
                 if (!startDateTime.isValid || !endDateTime.isValid) {
                     console.error(`Invalid DateTime for Event ID: ${event.id}`);
                     return { ...event, status: "error" };
                 }
-        
+
                 let eventStatus = '';
                 if (currentTime < startDateTime) {
                     eventStatus = "inactive";
@@ -266,15 +279,13 @@ export const getAllEvents = async (req, res) => {
                 } else if (currentTime > endDateTime) {
                     eventStatus = "complete";
                 }
-        
-                console.log(`Event ID: ${event.id}, Status: ${eventStatus}`);
+
                 return { ...event, status: eventStatus };
             } catch (error) {
                 console.error(`Error processing Event ID: ${event.id}`, error);
                 return { ...event, status: "error" };
             }
         });
-              
         return res.status(200).json({
             meta: {
                 total: totalEvents,
