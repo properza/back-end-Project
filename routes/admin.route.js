@@ -4,7 +4,7 @@ import {
     getAllEvents, getAdminData, logout,
     sendLineMessage, createReward, getAllRewards,
     updateReward, getAdmins, updateAdmin,
-    deleteAdmin
+    deleteAdmin , deleteReward
 } from '../controllers/adminController.js';
 import { verifyToken, verifySuperAdmin } from '../middleware/authMiddleware.js';
 
@@ -20,10 +20,12 @@ router.post('/sendMessage', verifyToken, sendLineMessage);
 router.post('/createReward', verifyToken, createReward);
 router.get('/rewards', verifyToken, getAllRewards);
 router.put('/rewards/:reward_id', verifyToken, updateReward);
+router.delete('/rewards/:reward_id', verifyToken, deleteReward);
 
 router.get('/admins/getadmin', verifySuperAdmin, getAdmins);
 router.put('/admins/:adminId', verifySuperAdmin, updateAdmin);
 router.delete('/admins/:adminId', verifySuperAdmin, deleteAdmin);
+
 
 // เส้นทางสำหรับดู event ที่เป็น "special"
 router.get('/event/special', verifyToken, async (req, res) => {
