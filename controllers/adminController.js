@@ -21,18 +21,18 @@ export const adminLogin = async (req, res) => {
             return res.status(400).json({ message: 'กรุณากรอก Username และ Password' });
         }
 
-        console.log('Received Username:', username);
+        //console.log('Received Username:', username);
 
         const [rows] = await connection.query('SELECT * FROM admins WHERE username = ?', [username]);
 
-        console.log('Query Result:', rows);
+        //console.log('Query Result:', rows);
 
         if (!rows || rows.length === 0) {
             return res.status(400).json({ message: 'Username ไม่ถูกต้อง' });
         }
 
         const admin = rows[0];
-        console.log('Admin Data:', admin);
+        //console.log('Admin Data:', admin);
 
         const passwordIsValid = await bcrypt.compare(password, admin.password);
 
@@ -105,7 +105,7 @@ export const createAdmin = async (req, res) => {
             [username, hashedPassword, firstname, lastname, role]
         );
 
-        console.log('Insert Result:', result);
+        //console.log('Insert Result:', result);
 
         res.status(201).json({ message: `สร้าง admin ${role} สำเร็จแล้ว` });
 
@@ -348,7 +348,7 @@ export const createReward = async (req, res) => {
             [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, rewardUrl || null]
         );
 
-        console.log('Insert Reward Result:', result);
+        //console.log('Insert Reward Result:', result);
 
         res.status(201).json({
             message: 'สร้างรางวัลสำเร็จแล้ว',

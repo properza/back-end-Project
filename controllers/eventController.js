@@ -47,7 +47,12 @@ export const getEventWithCustomerCount = async (req, res) => {
           total_point: row.total_point,
           faceUrl: row.faceUrl,
           levelST: row.levelST,
-          images: row.registrationImages
+          images: row.registrationImages,
+          status: row.check_type === 'in'
+            ? 'กำลังเข้าร่วม'
+            : row.check_type === 'out'
+                ? 'เข้าร่วมสำเร็จ'
+                : null
         }));
   
       const eventData = {
@@ -116,15 +121,15 @@ export const registerCustomerForEvent = async (req, res) => {
         const currentTime = DateTime.now().setZone(timezone);
 
         // Log eventDetails for debugging
-        console.log("Event Details:", eventDetails);
+        //console.log("Event Details:", eventDetails);
 
         // Construct ISO 8601 date-time strings
         const startDateTimeStr = eventDetails.startDate.toISOString(); // '2024-12-19T17:00:00.000Z'
         const endDateTimeStr = eventDetails.endDate.toISOString();     // '2024-12-21T17:00:00.000Z'
 
         // Log the constructed date-time strings
-        console.log("Start DateTime String:", startDateTimeStr);
-        console.log("End DateTime String:", endDateTimeStr);
+        //console.log("Start DateTime String:", startDateTimeStr);
+        //console.log("End DateTime String:", endDateTimeStr);
 
         // Parse event start and end times using Luxon
         const eventStartUTC = DateTime.fromISO(startDateTimeStr, { zone: 'utc' });
@@ -150,8 +155,8 @@ export const registerCustomerForEvent = async (req, res) => {
         });
 
         // Log parsed eventStart and eventEnd
-        console.log("Parsed Event Start:", eventStart.toISO());
-        console.log("Parsed Event End:", eventEnd.toISO());
+        //console.log("Parsed Event Start:", eventStart.toISO());
+        //console.log("Parsed Event End:", eventEnd.toISO());
 
         // Validate parsed dates
         if (!eventStart.isValid || !eventEnd.isValid) {
@@ -347,8 +352,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         // Prepare events data with images and calculate points
         const eventsData = await Promise.all(eventResults.map(async (row) => {
             // Log the raw image strings for debugging
-            console.log(`Event ID: ${row.eventId}`);
-            console.log(`Registration Images (In): ${row.registrationImages}`);
+            //console.log(`Event ID: ${row.eventId}`);
+            //console.log(`Registration Images (In): ${row.registrationImages}`);
 
             const formattedDates = formatEventDates(row);
 
@@ -361,12 +366,12 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 const durationMilliseconds = outTime - inTime;
                 const durationMinutes = durationMilliseconds / (1000 * 60); 
 
-                console.log('ระยะเวลา (นาที):', inTime, outTime);
+                //console.log('ระยะเวลา (นาที):', inTime, outTime);
 
                 if (durationMinutes > 0) { // ตรวจสอบว่า out_time มากกว่า in_time
                     points = Math.floor(durationMinutes / 30) * 5; // ทุก 30 นาที = 5 คะแนน
 
-                    console.log(`Event ID: ${row.eventId} Duration: ${durationMinutes} minutes, Points: ${points}`);
+                    //console.log(`Event ID: ${row.eventId} Duration: ${durationMinutes} minutes, Points: ${points}`);
 
                     // เพิ่มคะแนนรวม
                     totalPointsToAdd += points;
@@ -377,11 +382,11 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                     );
 
                 } else {
-                    console.log(`Event ID: ${row.eventId} has invalid time entries. Out time is before In time.`);
+                    //console.log(`Event ID: ${row.eventId} has invalid time entries. Out time is before In time.`);
                 }
             } else {
                 if (!row.out_time) {
-                    console.log(`Event ID: ${row.eventId} does not have an 'out' registration.`);
+                    //console.log(`Event ID: ${row.eventId} does not have an 'out' registration.`);
                 }
             }
 
@@ -418,7 +423,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 [totalPointsToAdd, customerId]
             );
 
-            console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
+            //console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
         } else {
             // ถ้าน้อยกว่า หรือเท่ากัน ให้ใช้ totalPointsToAdd
             await connection.query(
@@ -426,7 +431,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 [totalPointsToAdd, customerId]
             );
 
-            console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
+            //console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
         }
 
         await connection.commit();

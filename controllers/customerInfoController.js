@@ -43,7 +43,7 @@ export const createOrLoginCustomer = async (req, res) => {
             });
         }
     } catch (err) {
-        console.log(err);
+        //console.log(err);
         return res.status(500).send("Internal server error");
     }
 };
@@ -98,7 +98,7 @@ export const updateCustomerProfile = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
+        //console.log(err);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -149,7 +149,7 @@ export const getAllCustomers = async (req, res) => {
             data: customerResults
         });
     } catch (err) {
-        console.log(err);
+        //console.log(err);
         return res.status(500).send("Internal server error");
     }
 };
@@ -158,11 +158,11 @@ export const getAllCustomers = async (req, res) => {
 export const uploadFaceIdImage = async (req, res) => {
     const { customer_id } = req.body;
 
-    console.log("Received upload request for customer_id:", customer_id);
-    console.log("Received file:", req.file);
+    //console.log("Received upload request for customer_id:", customer_id);
+    //console.log("Received file:", req.file);
 
     if (!customer_id || !req.file) {
-        console.log("Missing customer_id or file");
+        //console.log("Missing customer_id or file");
         return res.status(400).json({ message: "Please provide customer_id and upload an image file" });
     }
 
@@ -173,7 +173,7 @@ export const uploadFaceIdImage = async (req, res) => {
         );
 
         if (results.length === 0) {
-            console.log("Customer not found:", customer_id);
+            //console.log("Customer not found:", customer_id);
             return res.status(404).json({ message: "Customer not found" });
         }
 
@@ -182,16 +182,16 @@ export const uploadFaceIdImage = async (req, res) => {
         const newDir = path.join(__dirname, '..', 'utils', 'gfiles');
         const newPath = path.join(newDir, req.file.filename);
 
-        console.log("Old path:", oldPath);
-        console.log("New path:", newPath);
+        //console.log("Old path:", oldPath);
+        //console.log("New path:", newPath);
 
         // สร้างโฟลเดอร์ใหม่ถ้าไม่มีอยู่
         await fsPromises.mkdir(newDir, { recursive: true });
-        console.log("Created directory:", newDir);
+        //console.log("Created directory:", newDir);
 
         // ย้ายไฟล์ไปยังโฟลเดอร์ใหม่
         await fsPromises.rename(oldPath, newPath);
-        console.log("Moved file to:", newPath);
+        //console.log("Moved file to:", newPath);
 
         const baseUrl = "https://project-dev-0hj6.onrender.com/utils/gfiles";
         const fileUrl = `${baseUrl}/${req.file.filename}`;
@@ -201,14 +201,14 @@ export const uploadFaceIdImage = async (req, res) => {
             "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
             [fileUrl, customer_id]
         );
-        console.log("Updated database with faceUrl:", fileUrl);
+        //console.log("Updated database with faceUrl:", fileUrl);
 
         const [updatedUserResults] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
 
-        console.log("Upload successful for customer_id:", customer_id);
+        //console.log("Upload successful for customer_id:", customer_id);
 
         return res.status(200).json({
             message: "Face ID image uploaded successfully",
