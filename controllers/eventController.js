@@ -1,91 +1,105 @@
 import connection from "../model/database.js";
-import { DateTime } from 'luxon'; 
+import { DateTime } from 'luxon';
 
 export const getEventWithCustomerCount = async (req, res) => {
     const { eventId } = req.params;
     const currentPage = parseInt(req.query.page) || 1;
     const perPage = parseInt(req.query.per_page) || 10;
-  
+
     try {
-      const [countResults] = await connection.query(
-        "SELECT COUNT(*) as total FROM registrations WHERE event_id = ?",
-        [eventId]
-      );
-      const totalCustomers = countResults[0].total;
-      const totalPages = Math.ceil(totalCustomers / perPage);
-      const offset = (currentPage - 1) * perPage;
-  
-      const [eventResults] = await connection.query(
-        `SELECT e.*, r.*, c.*, r.images AS registrationImages
+        const [countResults] = await connection.query(
+            "SELECT COUNT(*) as total FROM registrations WHERE event_id = ?",
+            [eventId]
+        );
+        const totalCustomers = countResults[0].total;
+        const totalPages = Math.ceil(totalCustomers / perPage);
+        const offset = (currentPage - 1) * perPage;
+
+        const [eventResults] = await connection.query(
+            `SELECT e.*, r.*, c.*, r.images AS registrationImages
          FROM event e
          LEFT JOIN registrations r ON e.id = r.event_id
          LEFT JOIN customerinfo c ON r.customer_id = c.customer_id
          WHERE e.id = ?
          LIMIT ? OFFSET ?`,
-        [eventId, perPage, offset]
-      );
-  
-      if (eventResults.length === 0) {
-        return res.status(404).json({ message: 'Event not found' });
-      }
-  
-      const listST = eventResults
-        .filter(row => row.customer_id)
-        .map(row => ({
-          id: row.customer_id,
-          customer_id: row.customer_id,
-          name: row.name,
-          picture: row.picture,
-          email: row.email,
-          first_name: row.first_name,
-          last_name: row.last_name,
-          user_code: row.user_code,
-          group_st: row.group_st,
-          branch_st: row.branch_st,
-          tpye_st: row.tpye_st,
-          st_tpye: row.st_tpye,
-          total_point: row.total_point,
-          faceUrl: row.faceUrl,
-          levelST: row.levelST,
-          images: row.registrationImages,
-          status: row.check_type === 'in'
-            ? 'กำลังเข้าร่วม'
-            : row.check_type === 'out'
-                ? 'เข้าร่วมสำเร็จ'
-                : null
+            [eventId, perPage, offset]
+        );
+
+        if (eventResults.length === 0) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+
+        const uniqueCustomerIds = new Set();
+
+        const uniqueRows = eventResults.filter((row) => {
+            // ถ้าไม่มี customer_id เลย ก็ไม่ต้องเอา
+            if (!row.customer_id) return false;
+
+            // ถ้าเจอ customer_id เดิมซ้ำ ให้ข้าม
+            if (uniqueCustomerIds.has(row.customer_id)) {
+                return false;
+            }
+
+            // ถ้ายังไม่เคยเจอ ให้บันทึกไว้ใน Set และเอาแถวนี้
+            uniqueCustomerIds.add(row.customer_id);
+            return true;
+        });
+
+        const listST = uniqueRows.map(row => ({
+            id: row.customer_id,
+            customer_id: row.customer_id,
+            name: row.name,
+            picture: row.picture,
+            email: row.email,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            user_code: row.user_code,
+            group_st: row.group_st,
+            branch_st: row.branch_st,
+            tpye_st: row.tpye_st,
+            st_tpye: row.st_tpye,
+            total_point: row.total_point,
+            faceUrl: row.faceUrl,
+            levelST: row.levelST,
+            images: row.registrationImages,
+            status: row.check_type === 'in'
+                ? 'กำลังเข้าร่วม'
+                : row.check_type === 'out'
+                    ? 'เข้าร่วมสำเร็จ'
+                    : null
         }));
-  
-      const eventData = {
-        id: eventResults[0].id,
-        activityName: eventResults[0].activityName,
-        course: eventResults[0].course,
-        startDate: eventResults[0].startDate,
-        endDate: eventResults[0].endDate,
-        startTime: eventResults[0].startTime,
-        endTime: eventResults[0].endTime,
-        Nameplace: eventResults[0].Nameplace,
-        latitude: eventResults[0].latitude,
-        longitude: eventResults[0].longitude,
-        province: eventResults[0].province,
-        admin_id: eventResults[0].admin_id,
-        event_type: eventResults[0].event_type,
-        created_at: eventResults[0].created_at,
-        listST: listST 
-      };
-  
-      const meta = {
-        total: totalCustomers,
-        per_page: perPage,
-        current_page: currentPage,
-        last_page: totalPages
-      };
-  
-      return res.status(200).json({ meta, data: eventData });
+
+        const eventData = {
+            id: eventResults[0].id,
+            activityName: eventResults[0].activityName,
+            course: eventResults[0].course,
+            startDate: eventResults[0].startDate,
+            endDate: eventResults[0].endDate,
+            startTime: eventResults[0].startTime,
+            endTime: eventResults[0].endTime,
+            Nameplace: eventResults[0].Nameplace,
+            latitude: eventResults[0].latitude,
+            longitude: eventResults[0].longitude,
+            province: eventResults[0].province,
+            admin_id: eventResults[0].admin_id,
+            event_type: eventResults[0].event_type,
+            created_at: eventResults[0].created_at,
+            listST: listST
+        };
+
+        const meta = {
+            total: totalCustomers,
+            per_page: perPage,
+            current_page: currentPage,
+            last_page: totalPages
+        };
+
+        return res.status(200).json({ meta, data: eventData });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Internal server error" });
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
     }
-  };
+};
 
 export const registerCustomerForEvent = async (req, res) => {
     const { eventId } = req.params;
@@ -364,7 +378,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 const outTime = new Date(row.out_time);
 
                 const durationMilliseconds = outTime - inTime;
-                const durationMinutes = durationMilliseconds / (1000 * 60); 
+                const durationMinutes = durationMilliseconds / (1000 * 60);
 
                 //console.log('ระยะเวลา (นาที):', inTime, outTime);
 
@@ -465,7 +479,7 @@ export const EditEvent = async (req, res) => {
     const { eventId } = req.params;
     const { event_type, latitude, longitude, province } = req.body;
 
-    const isSuperAdmin = req.user.role === 'super_admin'; 
+    const isSuperAdmin = req.user.role === 'super_admin';
 
     // ตรวจสอบ event_type หากมีการส่งมา
     if (event_type && !['special', 'normal'].includes(event_type)) {
@@ -562,7 +576,7 @@ export const DeleteEvent = async (req, res) => {
     const { eventId } = req.params;
     const { event_type } = req.body;
 
-    const isSuperAdmin = req.user.role === 'super_admin'; 
+    const isSuperAdmin = req.user.role === 'super_admin';
 
     if (event_type && !['special', 'normal'].includes(event_type)) {
         return res.status(400).json({ message: 'Invalid event type' });
