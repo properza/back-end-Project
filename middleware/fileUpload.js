@@ -13,7 +13,6 @@ const s3Client = new S3Client({
   },
 });
 
-// Remove acl: 'public-read' to avoid the ACL issue
 const upload = multer({
   storage: multerS3({
     s3: s3Client,
@@ -24,6 +23,6 @@ const upload = multer({
       cb(null, fileName); // Set the file name to be unique
     },
   }),
-}).array('images', 10);;
+}).array('images', 10);
 
 export default upload;
