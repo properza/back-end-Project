@@ -18,6 +18,7 @@ const upload = multer({
   storage: multerS3({
     s3: s3Client,
     bucket: process.env.AWS_BUCKET_NAME,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (req, file, cb) => {
       const fileName = `${Date.now()}-${file.originalname}`;
       cb(null, fileName); // Set the file name to be unique
