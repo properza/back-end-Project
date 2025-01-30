@@ -158,8 +158,9 @@ export const getAllCustomers = async (req, res) => {
 export const uploadFaceIdImage = async (req, res) => {
     const { customer_id } = req.body;
 
+    // ตรวจสอบว่ามี customer_id และไฟล์หรือไม่
     if (!customer_id || !req.file) {
-        return res.status(400).json({ message: "Please provide customer_id and upload an image file" });
+        return res.status(400).json({ message: "กรุณาระบุ customer_id และอัปโหลดไฟล์รูปภาพ" });
     }
 
     try {
@@ -169,30 +170,28 @@ export const uploadFaceIdImage = async (req, res) => {
         );
 
         if (results.length === 0) {
-            return res.status(404).json({ message: "Customer not found" });
+            return res.status(404).json({ message: "ไม่พบข้อมูลลูกค้า" });
         }
 
-        // Get the URL of the uploaded file on S3
+        // ได้ URL ของไฟล์ที่อัปโหลดไปยัง S3
         const fileUrl = req.file.location;
 
-        // Update the URL of the file in the database
+        // อัปเดต URL ของไฟล์ในฐานข้อมูล
         await pool.query(
             "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
             [fileUrl, customer_id]
         );
 
         return res.status(200).json({
-            message: "Face ID image uploaded successfully",
+            message: "อัปโหลดรูปภาพใบหน้าเรียบร้อย",
             fileUrl: fileUrl,
         });
 
     } catch (err) {
-        console.error("Error uploading face ID image:", err);
-        return res.status(500).json({ message: 'Internal server error', error: err.message });
+        console.error("เกิดข้อผิดพลาดในการอัปโหลด:", err);
+        return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
     }
 };
-
-
 
 export const getAvailableRewards = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
