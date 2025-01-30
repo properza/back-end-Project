@@ -103,24 +103,23 @@ export const getEventWithCustomerCount = async (req, res) => {
 
 export const registerCustomerForEvent = async (req, res) => {
     const { eventId } = req.params;
-    const { customerId, images } = req.body;
+    const { customerId } = req.body;
 
-    // Validate customerId
+    // ตรวจสอบ customerId
     if (!customerId) {
         return res.status(400).json({ message: "กรุณาระบุ customerId" });
     }
 
-    // Validate and stringify images
-    let imagesJson = null;
-    if (images) {
-        if (!Array.isArray(images)) {
-            return res.status(400).json({ message: "images ควรเป็น array ของลิงก์รูป" });
-        }
-        imagesJson = JSON.stringify(images);
+    // ตรวจสอบว่าได้ไฟล์หรือไม่
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: "กรุณาอัปโหลดรูปภาพ" });
     }
 
+    // เก็บ URL ของไฟล์ใน Array
+    const imageUrls = req.files.map(file => file.location);  // เก็บ URL ของไฟล์
+
     try {
-        // Fetch the event ensuring it's created by an admin
+        // ตรวจสอบกิจกรรม
         const [eventResults] = await pool.query(
             "SELECT * FROM event WHERE id = ? AND admin_id IS NOT NULL",
             [eventId]
@@ -134,16 +133,8 @@ export const registerCustomerForEvent = async (req, res) => {
         const timezone = 'Asia/Bangkok';
         const currentTime = DateTime.now().setZone(timezone);
 
-        // Log eventDetails for debugging
-        //console.log("Event Details:", eventDetails);
-
-        // Construct ISO 8601 date-time strings
-        const startDateTimeStr = eventDetails.startDate.toISOString(); // '2024-12-19T17:00:00.000Z'
-        const endDateTimeStr = eventDetails.endDate.toISOString();     // '2024-12-21T17:00:00.000Z'
-
-        // Log the constructed date-time strings
-        //console.log("Start DateTime String:", startDateTimeStr);
-        //console.log("End DateTime String:", endDateTimeStr);
+        const startDateTimeStr = eventDetails.startDate.toISOString();
+        const endDateTimeStr = eventDetails.endDate.toISOString();
 
         // Parse event start and end times using Luxon
         const eventStartUTC = DateTime.fromISO(startDateTimeStr, { zone: 'utc' });
@@ -153,7 +144,6 @@ export const registerCustomerForEvent = async (req, res) => {
         const [startHour, startMinute, startSecond] = eventDetails.startTime.split(':').map(Number);
         const [endHour, endMinute, endSecond] = eventDetails.endTime.split(':').map(Number);
 
-        // Convert to Asia/Bangkok timezone and set the correct time
         const eventStart = eventStartUTC.setZone(timezone).set({
             hour: startHour,
             minute: startMinute,
@@ -168,32 +158,26 @@ export const registerCustomerForEvent = async (req, res) => {
             millisecond: 0
         });
 
-        // Log parsed eventStart and eventEnd
-        //console.log("Parsed Event Start:", eventStart.toISO());
-        //console.log("Parsed Event End:", eventEnd.toISO());
-
-        // Validate parsed dates
+        // ตรวจสอบเวลาว่าถูกต้องหรือไม่
         if (!eventStart.isValid || !eventEnd.isValid) {
-            console.error("Invalid event start or end date/time format.");
             return res.status(400).json({ message: "Invalid event start or end date/time format" });
         }
 
-        // Fetch existing registrations for the customer and event
+        // ตรวจสอบการลงทะเบียน
         const [registrationResults] = await pool.query(
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? ORDER BY created_at ASC",
             [eventId, customerId]
         );
 
-        // Registration Logic
+        // Logic การลงทะเบียน
         if (currentTime < eventStart) {
-            // Before the event starts
             const diffBeforeStart = eventStart.diff(currentTime, 'minutes').minutes;
 
             if (registrationResults.length === 0) {
                 if (diffBeforeStart <= 15) {
                     await pool.query(
                         "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'in', ?, ?)",
-                        [eventId, customerId, imagesJson, currentTime.toISO()]
+                        [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO()]
                     );
                     return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ (ล่วงหน้า)" });
                 } else {
@@ -203,48 +187,26 @@ export const registerCustomerForEvent = async (req, res) => {
                         message: `ยังไม่เริ่มกิจกรรม กิจกรรมจะเริ่มในอีก ${hours} ชั่วโมง ${minutes} นาที`
                     });
                 }
-            } else if (registrationResults.length === 1) {
-                const lastReg = registrationResults[0];
-                if (lastReg.check_type === 'in') {
-                    return res.status(400).json({ message: "ยังไม่สามารถเช็คชื่อออกได้เนื่องจากกิจกรรมยังไม่เริ่ม" });
-                } else {
-                    return res.status(400).json({ message: `คุณได้ลงชื่อครบแล้ว ${imagesJson}` });
-                }
             } else {
-                return res.status(400).json({ message: `คุณได้ลงชื่อครบแล้ว ${imagesJson}` });
+                return res.status(400).json({ message: "คุณได้ลงชื่อครบแล้ว" });
             }
-
         } else if (currentTime >= eventStart && currentTime <= eventEnd) {
-            // During the event
             const diffAfterStart = currentTime.diff(eventStart, 'minutes').minutes;
 
             if (registrationResults.length === 0) {
                 if (diffAfterStart <= 45) {
                     await pool.query(
                         "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'in', ?, ?)",
-                        [eventId, customerId, imagesJson, currentTime.toISO()]
+                        [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO()]
                     );
                     return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
                 } else {
                     return res.status(400).json({ message: `หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว` });
                 }
-            } else if (registrationResults.length === 1) {
-                const lastReg = registrationResults[0];
-                if (lastReg.check_type === 'in') {
-                    await pool.query(
-                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'out', ?, ?)",
-                        [eventId, customerId, null, currentTime.toISO()]
-                    );
-                    return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ" });
-                } else {
-                    return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
-                }
             } else {
-                return res.status(400).json({ message: `คุณได้ลงชื่อครบแล้ว ${imagesJson}` });
+                return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
             }
-
         } else {
-            // After the event ends
             return res.status(400).json({ message: `หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว` });
         }
 
@@ -253,6 +215,7 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params

@@ -24,6 +24,6 @@ const upload = multer({
       cb(null, fileName); // Set the file name to be unique
     },
   }),
-});
+}).array('images', 10);;
 
 export default upload;
