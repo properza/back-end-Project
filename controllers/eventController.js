@@ -267,9 +267,16 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         return res.status(400).json({ message: "กรุณาระบุ customerId ใน URL" });
     }
 
+    let connection;
     try {
+        // Get a connection from the pool
+        connection = await pool.getConnection();
+
+        // Start a transaction
+        await connection.beginTransaction();
+
         // ตรวจสอบว่ามี customer หรือไม่
-        const [customerResults] = await pool.query(
+        const [customerResults] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customerId]
         );
@@ -279,7 +286,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         }
 
         // Query pagination with count of 'in' registrations
-        const [countResults] = await pool.query(
+        const [countResults] = await connection.query(
             "SELECT COUNT(*) as total FROM registrations WHERE customer_id = ? AND check_type = 'in'",
             [customerId]
         );
@@ -288,7 +295,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         const offset = (currentPage - 1) * perPage;
 
         // ดึงรายการกิจกรรมที่ลูกค้าได้ลงทะเบียน (check_type = 'in' only) พร้อมเรียงลำดับจากล่าสุด
-        const [eventResults] = await pool.query(
+        const [eventResults] = await connection.query(
             `SELECT 
                 e.id AS eventId,
                 e.activityName,
@@ -359,48 +366,31 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             };
         };
 
-        await pool.beginTransaction();
-
         let totalPointsToAdd = 0;
 
         // Prepare events data with images and calculate points
         const eventsData = await Promise.all(eventResults.map(async (row) => {
-            // Log the raw image strings for debugging
-            //console.log(`Event ID: ${row.eventId}`);
-            //console.log(`Registration Images (In): ${row.registrationImages}`);
-
             const formattedDates = formatEventDates(row);
 
             let points = 0;
 
-            if (row.out_time) { // Removed row.in_time check
+            if (row.out_time) {
                 const inTime = new Date(row.in_time);
                 const outTime = new Date(row.out_time);
 
                 const durationMilliseconds = outTime - inTime;
                 const durationMinutes = durationMilliseconds / (1000 * 60);
 
-                //console.log('ระยะเวลา (นาที):', inTime, outTime);
-
                 if (durationMinutes > 0) { // ตรวจสอบว่า out_time มากกว่า in_time
                     points = Math.floor(durationMinutes / 30) * 5; // ทุก 30 นาที = 5 คะแนน
-
-                    //console.log(`Event ID: ${row.eventId} Duration: ${durationMinutes} minutes, Points: ${points}`);
 
                     // เพิ่มคะแนนรวม
                     totalPointsToAdd += points;
 
-                    await pool.query(
+                    await connection.query(
                         "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
                         [points, row.in_registration_id]
                     );
-
-                } else {
-                    //console.log(`Event ID: ${row.eventId} has invalid time entries. Out time is before In time.`);
-                }
-            } else {
-                if (!row.out_time) {
-                    //console.log(`Event ID: ${row.eventId} does not have an 'out' registration.`);
                 }
             }
 
@@ -423,32 +413,19 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         }));
 
         // ดึง total_point ปัจจุบันจาก customerinfo
-        const [totalPointResults] = await pool.query(
+        const [totalPointResults] = await connection.query(
             "SELECT total_point FROM customerinfo WHERE customer_id = ?",
             [customerId]
         );
         const currentTotalPoint = totalPointResults[0].total_point || 0;
 
         // เช็คว่า total_point ปัจจุบันมากกว่า totalPointsToAdd หรือไม่
-        if (currentTotalPoint > totalPointsToAdd) {
-            // ถ้ามากกว่า ให้ใช้ totalPointsToAdd
-            await pool.query(
-                "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
-                [totalPointsToAdd, customerId]
-            );
+        await connection.query(
+            "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
+            [Math.max(totalPointsToAdd, currentTotalPoint), customerId]
+        );
 
-            //console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
-        } else {
-            // ถ้าน้อยกว่า หรือเท่ากัน ให้ใช้ totalPointsToAdd
-            await pool.query(
-                "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
-                [totalPointsToAdd, customerId]
-            );
-
-            //console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
-        }
-
-        await pool.commit();
+        await connection.commit();
 
         const meta = {
             total: totalRegistrations,
@@ -469,8 +446,18 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         });
     } catch (error) {
         console.error("Transaction Error:", error);
-        await pool.rollback();
+
+        // Rollback the transaction in case of error
+        if (connection) {
+            await connection.rollback();
+        }
+
         return res.status(500).json({ message: "Internal server error" });
+    } finally {
+        // Always release the connection
+        if (connection) {
+            connection.release();
+        }
     }
 };
 
