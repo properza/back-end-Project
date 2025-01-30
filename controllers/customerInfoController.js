@@ -172,19 +172,18 @@ export const uploadFaceIdImage = async (req, res) => {
             return res.status(404).json({ message: "Customer not found" });
         }
 
-        // URL ของไฟล์ที่อัปโหลดไปยัง S3
-        const fileUrl = req.file.location; // `req.file.location` จะเก็บ URL ของไฟล์ใน S3
+        // Get the URL of the uploaded file on S3
+        const fileUrl = req.file.location;
 
-        // อัปเดต URL ของไฟล์ในฐานข้อมูล TiDB
+        // Update the URL of the file in the database
         await pool.query(
             "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
             [fileUrl, customer_id]
         );
 
-        // ส่งคำตอบกลับ
         return res.status(200).json({
             message: "Face ID image uploaded successfully",
-            fileUrl: fileUrl
+            fileUrl: fileUrl,
         });
 
     } catch (err) {
@@ -192,6 +191,7 @@ export const uploadFaceIdImage = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error', error: err.message });
     }
 };
+
 
 
 export const getAvailableRewards = async (req, res) => {
