@@ -20,7 +20,7 @@ const upload = multer({
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (req, file, cb) => {
       const fileName = `${Date.now()}-${file.originalname}`;
-      cb(null, fileName); // Set the file name to be unique
+      cb(null, fileName);
     },
   }),
 }).array('images', 10);

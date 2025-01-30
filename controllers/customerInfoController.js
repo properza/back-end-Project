@@ -158,13 +158,11 @@ export const getAllCustomers = async (req, res) => {
 export const uploadFaceIdImage = async (req, res) => {
     const { customer_id } = req.body;
 
-    // ตรวจสอบว่ามี customer_id และไฟล์หรือไม่
     if (!customer_id || !req.files || req.files.length === 0) {
         return res.status(400).json({ message: "กรุณาระบุ customer_id และอัปโหลดไฟล์รูปภาพ" });
     }
 
     try {
-        // ตรวจสอบว่ามีข้อมูลลูกค้าหรือไม่
         const [results] = await pool.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
@@ -174,18 +172,18 @@ export const uploadFaceIdImage = async (req, res) => {
             return res.status(404).json({ message: "ไม่พบข้อมูลลูกค้า" });
         }
 
-        // ได้ URL ของไฟล์ที่อัปโหลดไปยัง S3
-        const imageUrls = req.files.map(file => file.location);
+        const fileUrls = req.files.map(file => file.location);
 
-        // อัปเดต URL ของไฟล์ในฐานข้อมูล
+        const fileUrlsJson = JSON.stringify(fileUrls);
+
         await pool.query(
             "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
-            [JSON.stringify(imageUrls), customer_id] // เก็บ URLs ในฐานข้อมูลเป็น JSON string
+            [fileUrlsJson, customer_id]
         );
 
         return res.status(200).json({
             message: "อัปโหลดรูปภาพใบหน้าเรียบร้อย",
-            fileUrl: imageUrls,
+            fileUrls: fileUrls,
         });
 
     } catch (err) {
