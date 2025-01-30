@@ -9,7 +9,7 @@ const router = Router();
 router.get('/customers', getAllCustomers);
 router.post('/customerinfo', createOrLoginCustomer);
 router.put('/customerinfo/updateprofile',  updateCustomerProfile);
-router.put('/customerinfo/uploadfaceid', upload.array('face_image_url', 1), uploadFaceIdImage);
+router.put('/customerinfo/uploadfaceid', upload.array('images', 1), uploadFaceIdImage);
 router.get('/rewards', getAvailableRewards);
 router.post('/rewards/redeem',redeemReward);
 router.get('/historyrewards/:customerId', getCustomerRewardHistory);    
