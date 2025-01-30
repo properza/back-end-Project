@@ -1,4 +1,4 @@
-import connection from "../model/database.js";
+import pool from "../model/database.js";
 import { DateTime } from 'luxon';
 
 export const getEventWithCustomerCount = async (req, res) => {
@@ -7,7 +7,7 @@ export const getEventWithCustomerCount = async (req, res) => {
     const perPage = parseInt(req.query.per_page) || 10;
 
     try {
-        const [countResults] = await connection.query(
+        const [countResults] = await pool.query(
             "SELECT COUNT(*) as total FROM registrations WHERE event_id = ?",
             [eventId]
         );
@@ -15,7 +15,7 @@ export const getEventWithCustomerCount = async (req, res) => {
         const totalPages = Math.ceil(totalCustomers / perPage);
         const offset = (currentPage - 1) * perPage;
 
-        const [eventResults] = await connection.query(
+        const [eventResults] = await pool.query(
             `SELECT e.*, r.*, c.*, r.images AS registrationImages
          FROM event e
          LEFT JOIN registrations r ON e.id = r.event_id
@@ -121,7 +121,7 @@ export const registerCustomerForEvent = async (req, res) => {
 
     try {
         // Fetch the event ensuring it's created by an admin
-        const [eventResults] = await connection.query(
+        const [eventResults] = await pool.query(
             "SELECT * FROM event WHERE id = ? AND admin_id IS NOT NULL",
             [eventId]
         );
@@ -179,7 +179,7 @@ export const registerCustomerForEvent = async (req, res) => {
         }
 
         // Fetch existing registrations for the customer and event
-        const [registrationResults] = await connection.query(
+        const [registrationResults] = await pool.query(
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? ORDER BY created_at ASC",
             [eventId, customerId]
         );
@@ -190,8 +190,8 @@ export const registerCustomerForEvent = async (req, res) => {
             const diffBeforeStart = eventStart.diff(currentTime, 'minutes').minutes;
 
             if (registrationResults.length === 0) {
-                if (diffBeforeStart <= 45) {
-                    await connection.query(
+                if (diffBeforeStart <= 15) {
+                    await pool.query(
                         "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'in', ?, ?)",
                         [eventId, customerId, imagesJson, currentTime.toISO()]
                     );
@@ -220,7 +220,7 @@ export const registerCustomerForEvent = async (req, res) => {
 
             if (registrationResults.length === 0) {
                 if (diffAfterStart <= 45) {
-                    await connection.query(
+                    await pool.query(
                         "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'in', ?, ?)",
                         [eventId, customerId, imagesJson, currentTime.toISO()]
                     );
@@ -231,7 +231,7 @@ export const registerCustomerForEvent = async (req, res) => {
             } else if (registrationResults.length === 1) {
                 const lastReg = registrationResults[0];
                 if (lastReg.check_type === 'in') {
-                    await connection.query(
+                    await pool.query(
                         "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'out', ?, ?)",
                         [eventId, customerId, null, currentTime.toISO()]
                     );
@@ -269,7 +269,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
     try {
         // ตรวจสอบว่ามี customer หรือไม่
-        const [customerResults] = await connection.query(
+        const [customerResults] = await pool.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customerId]
         );
@@ -279,7 +279,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         }
 
         // Query pagination with count of 'in' registrations
-        const [countResults] = await connection.query(
+        const [countResults] = await pool.query(
             "SELECT COUNT(*) as total FROM registrations WHERE customer_id = ? AND check_type = 'in'",
             [customerId]
         );
@@ -288,7 +288,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         const offset = (currentPage - 1) * perPage;
 
         // ดึงรายการกิจกรรมที่ลูกค้าได้ลงทะเบียน (check_type = 'in' only) พร้อมเรียงลำดับจากล่าสุด
-        const [eventResults] = await connection.query(
+        const [eventResults] = await pool.query(
             `SELECT 
                 e.id AS eventId,
                 e.activityName,
@@ -359,7 +359,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             };
         };
 
-        await connection.beginTransaction();
+        await pool.beginTransaction();
 
         let totalPointsToAdd = 0;
 
@@ -390,7 +390,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                     // เพิ่มคะแนนรวม
                     totalPointsToAdd += points;
 
-                    await connection.query(
+                    await pool.query(
                         "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
                         [points, row.in_registration_id]
                     );
@@ -423,7 +423,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         }));
 
         // ดึง total_point ปัจจุบันจาก customerinfo
-        const [totalPointResults] = await connection.query(
+        const [totalPointResults] = await pool.query(
             "SELECT total_point FROM customerinfo WHERE customer_id = ?",
             [customerId]
         );
@@ -432,7 +432,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         // เช็คว่า total_point ปัจจุบันมากกว่า totalPointsToAdd หรือไม่
         if (currentTotalPoint > totalPointsToAdd) {
             // ถ้ามากกว่า ให้ใช้ totalPointsToAdd
-            await connection.query(
+            await pool.query(
                 "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
                 [totalPointsToAdd, customerId]
             );
@@ -440,7 +440,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             //console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
         } else {
             // ถ้าน้อยกว่า หรือเท่ากัน ให้ใช้ totalPointsToAdd
-            await connection.query(
+            await pool.query(
                 "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
                 [totalPointsToAdd, customerId]
             );
@@ -448,7 +448,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             //console.log(`Set total_point to ${totalPointsToAdd} for customer ID: ${customerId}`);
         }
 
-        await connection.commit();
+        await pool.commit();
 
         const meta = {
             total: totalRegistrations,
@@ -469,7 +469,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         });
     } catch (error) {
         console.error("Transaction Error:", error);
-        await connection.rollback();
+        await pool.rollback();
         return res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -508,7 +508,7 @@ export const EditEvent = async (req, res) => {
 
     try {
         // ตรวจสอบว่ากิจกรรมมีอยู่ในฐานข้อมูลหรือไม่
-        const [eventResults] = await connection.query(
+        const [eventResults] = await pool.query(
             "SELECT * FROM event WHERE id = ?", [eventId]
         );
 
@@ -559,7 +559,7 @@ export const EditEvent = async (req, res) => {
             queryParams.push(eventId);
 
             // ทำการอัปเดตข้อมูลในฐานข้อมูล
-            await connection.query(updateQuery, queryParams);
+            await pool.query(updateQuery, queryParams);
 
             return res.status(200).json({ message: 'Event updated successfully' });
         } else {
@@ -583,7 +583,7 @@ export const DeleteEvent = async (req, res) => {
     }
 
     try {
-        const [eventResults] = await connection.query(
+        const [eventResults] = await pool.query(
             "SELECT * FROM event WHERE id = ?", [eventId]
         );
 
@@ -594,7 +594,7 @@ export const DeleteEvent = async (req, res) => {
         const event = eventResults[0];
 
         if (isSuperAdmin || event.event_type === event_type) {
-            await connection.query("DELETE FROM event WHERE id = ?", [eventId]);
+            await pool.query("DELETE FROM event WHERE id = ?", [eventId]);
 
             return res.status(200).json({ message: 'Event deleted successfully' });
         } else {

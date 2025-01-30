@@ -1,4 +1,4 @@
-import connection from "../model/database.js";
+import pool from "../model/database.js";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -23,7 +23,7 @@ export const adminLogin = async (req, res) => {
 
         //console.log('Received Username:', username);
 
-        const [rows] = await connection.query('SELECT * FROM admins WHERE username = ?', [username]);
+        const [rows] = await pool.query('SELECT * FROM admins WHERE username = ?', [username]);
 
         //console.log('Query Result:', rows);
 
@@ -65,7 +65,7 @@ export const getAdminData = async (req, res) => {
     try {
         const adminId = req.user.id;
 
-        const [rows] = await connection.query('SELECT * FROM admins WHERE id = ?', [adminId]);
+        const [rows] = await pool.query('SELECT * FROM admins WHERE id = ?', [adminId]);
 
         if (!rows || rows.length === 0) {
             return res.status(404).json({ message: 'Admin not found' });
@@ -100,7 +100,7 @@ export const createAdmin = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 8);
 
-        const [result] = await connection.execute(
+        const [result] = await pool.execute(
             'INSERT INTO admins (username, password, firstname, lastname, role) VALUES (?, ?, ?, ?, ?)',
             [username, hashedPassword, firstname, lastname, role]
         );
@@ -132,7 +132,7 @@ export const createEvent = async (req, res) => {
     } = req.body;
 
     try {
-        const [adminCheck] = await connection.query('SELECT * FROM admins WHERE id = ?', [admin_id]);
+        const [adminCheck] = await pool.query('SELECT * FROM admins WHERE id = ?', [admin_id]);
         if (adminCheck.length === 0) {
             return res.status(400).json({ message: 'Invalid admin' });
         }
@@ -143,7 +143,7 @@ export const createEvent = async (req, res) => {
             return res.status(400).json({ message: 'Invalid event type. Must be either "special" or "normal".' });
         }
 
-        const [result] = await connection.query(
+        const [result] = await pool.query(
             'INSERT INTO event (activityName, course, startDate, endDate, startTime, endTime, Nameplace, latitude, longitude, province, admin_id,  event_type) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [activityName, course, startDate, endDate, startTime, endTime, Nameplace, latitude, longitude, province, admin_id, event_type]
         );
@@ -198,7 +198,7 @@ export const getAllEvents = async (req, res) => {
             }
         }
 
-        const [countResults] = await connection.query(countQuery, queryParams);
+        const [countResults] = await pool.query(countQuery, queryParams);
         let totalEvents = countResults[0].total;
 
         let totalPages = Math.ceil(totalEvents / perPage);
@@ -237,7 +237,7 @@ export const getAllEvents = async (req, res) => {
         eventQuery += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
         eventQueryParams.push(perPage, offset);
 
-        const [eventResults] = await connection.query(eventQuery, eventQueryParams);
+        const [eventResults] = await pool.query(eventQuery, eventQueryParams);
         const eventsWithStatus = eventResults.map(event => {
             try {
                 const startDate = typeof event.startDate === "string" 
@@ -343,7 +343,7 @@ export const createReward = async (req, res) => {
 
     try {
         // เพิ่มข้อมูลรางวัลใหม่ลงในตาราง rewards
-        const [result] = await connection.execute(
+        const [result] = await pool.execute(
             'INSERT INTO rewards (reward_name, points_required, amount, can_redeem, rewardUrl) VALUES (?, ?, ?, ?, ?)',
             [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, rewardUrl || null]
         );
@@ -384,7 +384,7 @@ export const getAllRewards = async (req, res) => {
             queryParams.push(canRedeem === 'true' ? 1 : 0);
         }
 
-        const [countResults] = await connection.query(countQuery, queryParams);
+        const [countResults] = await pool.query(countQuery, queryParams);
         let totalRewards = countResults[0].total;
 
         let totalPages = Math.ceil(totalRewards / perPage);
@@ -401,7 +401,7 @@ export const getAllRewards = async (req, res) => {
         rewardQuery += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
         rewardQueryParams.push(perPage, offset);
 
-        const [rewardResults] = await connection.query(rewardQuery, rewardQueryParams);
+        const [rewardResults] = await pool.query(rewardQuery, rewardQueryParams);
 
         return res.status(200).json({
             meta: {
@@ -460,7 +460,7 @@ export const updateReward = async (req, res) => {
 
     try {
         // ตรวจสอบว่ารางวัลมีอยู่จริง
-        const [existingReward] = await connection.query('SELECT * FROM rewards WHERE id = ?', [id]);
+        const [existingReward] = await pool.query('SELECT * FROM rewards WHERE id = ?', [id]);
         if (!existingReward || existingReward.length === 0) {
             return res.status(404).json({ message: 'ไม่พบรางวัลที่ต้องการแก้ไข' });
         }
@@ -497,7 +497,7 @@ export const updateReward = async (req, res) => {
         const updateQuery = `UPDATE rewards SET ${updateFields.join(', ')} WHERE id = ?`;
         queryParams.push(id);
 
-        const [result] = await connection.execute(updateQuery, queryParams);
+        const [result] = await pool.execute(updateQuery, queryParams);
 
         res.status(200).json({
             message: 'แก้ไขรางวัลสำเร็จแล้ว',
@@ -519,13 +519,13 @@ export const deleteReward = async (req, res) => {
 
     try {
         // ตรวจสอบว่ารางวัลมีอยู่จริง
-        const [existingReward] = await connection.query('SELECT * FROM rewards WHERE id = ?', [id]);
+        const [existingReward] = await pool.query('SELECT * FROM rewards WHERE id = ?', [id]);
         if (!existingReward || existingReward.length === 0) {
             return res.status(404).json({ message: 'ไม่พบรางวัลที่ต้องการลบ' });
         }
 
         // ลบรางวัล
-        const [result] = await connection.execute('DELETE FROM rewards WHERE id = ?', [id]);
+        const [result] = await pool.execute('DELETE FROM rewards WHERE id = ?', [id]);
 
         res.status(200).json({
             message: 'ลบรางวัลสำเร็จแล้ว',
@@ -557,7 +557,7 @@ export const getAdmins = async (req, res) => {
     try {
         // คำนวณจำนวนทั้งหมดของแอดมินที่ไม่ใช่ super_admin
         const countQuery = "SELECT COUNT(*) AS total FROM admins WHERE role != ?";
-        const [countResults] = await connection.query(countQuery, ['super_admin']);
+        const [countResults] = await pool.query(countQuery, ['super_admin']);
         const totalAdmins = countResults[0].total;
         const totalPages = Math.ceil(totalAdmins / parsedPerPage);
 
@@ -569,7 +569,7 @@ export const getAdmins = async (req, res) => {
             ORDER BY id DESC 
             LIMIT ? OFFSET ?
         `;
-        const [admins] = await connection.query(adminsQuery, ['super_admin', parsedPerPage, offset]);
+        const [admins] = await pool.query(adminsQuery, ['super_admin', parsedPerPage, offset]);
 
         // สร้างข้อมูล meta สำหรับการแบ่งหน้า
         const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
@@ -619,14 +619,14 @@ export const updateAdmin = async (req, res) => {
 
     try {
         // ตรวจสอบว่ามีแอดมินที่ต้องการอัปเดตอยู่จริง
-        const [existingAdmin] = await connection.query('SELECT * FROM admins WHERE id = ?', [id]);
+        const [existingAdmin] = await pool.query('SELECT * FROM admins WHERE id = ?', [id]);
         if (!existingAdmin || existingAdmin.length === 0) {
             return res.status(404).json({ message: 'ไม่พบแอดมินที่ต้องการอัปเดต' });
         }
 
         // ถ้ามีการอัปเดต username ให้ตรวจสอบว่าไม่มีแอดมินอื่นที่มี username เดียวกัน
         if (username) {
-            const [usernameCheck] = await connection.query('SELECT * FROM admins WHERE username = ? AND id != ?', [username, id]);
+            const [usernameCheck] = await pool.query('SELECT * FROM admins WHERE username = ? AND id != ?', [username, id]);
             if (usernameCheck.length > 0) {
                 return res.status(400).json({ message: 'username นี้ถูกใช้แล้ว' });
             }
@@ -661,7 +661,7 @@ export const updateAdmin = async (req, res) => {
         const updateQuery = `UPDATE admins SET ${updateFields.join(', ')} WHERE id = ?`;
         queryParams.push(id);
 
-        const [result] = await connection.execute(updateQuery, queryParams);
+        const [result] = await pool.execute(updateQuery, queryParams);
 
         res.status(200).json({
             message: 'อัปเดตแอดมินสำเร็จแล้ว',
@@ -685,7 +685,7 @@ export const deleteAdmin = async (req, res) => {
 
     try {
         // ตรวจสอบว่ามีแอดมินที่ต้องการลบอยู่จริง
-        const [existingAdmin] = await connection.query('SELECT * FROM admins WHERE id = ?', [id]);
+        const [existingAdmin] = await pool.query('SELECT * FROM admins WHERE id = ?', [id]);
         if (!existingAdmin || existingAdmin.length === 0) {
             return res.status(404).json({ message: 'ไม่พบแอดมินที่ต้องการลบ' });
         }
@@ -698,13 +698,13 @@ export const deleteAdmin = async (req, res) => {
         }
 
         // ตรวจสอบว่ามีแอดมินอื่นที่เป็น super_admin อยู่เสมอ
-        const [superAdmins] = await connection.query('SELECT * FROM admins WHERE role = ?', ['super_admin']);
+        const [superAdmins] = await pool.query('SELECT * FROM admins WHERE role = ?', ['super_admin']);
         if (superAdmins.length === 0) {
             return res.status(400).json({ message: 'ต้องมีแอดมินที่เป็น super_admin อย่างน้อยหนึ่งคนเสมอ' });
         }
 
         // ลบแอดมิน
-        const [result] = await connection.execute('DELETE FROM admins WHERE id = ?', [id]);
+        const [result] = await pool.execute('DELETE FROM admins WHERE id = ?', [id]);
 
         res.status(200).json({
             message: 'ลบแอดมินสำเร็จแล้ว',

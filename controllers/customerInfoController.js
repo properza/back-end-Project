@@ -1,4 +1,4 @@
-import connection from "../model/database.js";
+import pool from "../model/database.js";
 import path from 'path';
 import fs from 'fs';
 import { promises as fsPromises } from 'fs';
@@ -16,18 +16,18 @@ export const createOrLoginCustomer = async (req, res) => {
     }
 
     try {
-        const [results] = await connection.query(
+        const [results] = await pool.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
 
         if (results.length === 0) {
-            const [insertResults] = await connection.query(
+            const [insertResults] = await pool.query(
                 "INSERT INTO customerinfo (customer_id, name, picture) VALUES (?, ?, ?)",
                 [customer_id, name, picture]
             );
 
-            const [newUserResults] = await connection.query(
+            const [newUserResults] = await pool.query(
                 "SELECT * FROM customerinfo WHERE id = ?",
                 [insertResults.insertId]
             );
@@ -63,7 +63,7 @@ export const updateCustomerProfile = async (req, res) => {
     } = req.body;
 
     try {
-        const [results] = await connection.query(
+        const [results] = await pool.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
@@ -72,7 +72,7 @@ export const updateCustomerProfile = async (req, res) => {
             return res.status(404).json({ message: "Customer not found" });
         }
 
-        await connection.query(
+        await pool.query(
             "UPDATE customerinfo SET first_name = ?, last_name = ?, user_code = ?, group_st = ?, branch_st = ?, tpye_st = ?, st_tpye = ?, levelST = ? WHERE customer_id = ?",
             [
                 first_name,
@@ -87,7 +87,7 @@ export const updateCustomerProfile = async (req, res) => {
             ]
         );
 
-        const [updatedUserResults] = await connection.query(
+        const [updatedUserResults] = await pool.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
@@ -117,7 +117,7 @@ export const getAllCustomers = async (req, res) => {
             queryParams.push(stType);
         }
 
-        const [countResults] = await connection.query(countQuery, queryParams);
+        const [countResults] = await pool.query(countQuery, queryParams);
         let totalCustomers = countResults[0].total;
         let totalPages = Math.ceil(totalCustomers / perPage);
         let offset = (currentPage - 1) * perPage;
@@ -130,7 +130,7 @@ export const getAllCustomers = async (req, res) => {
 
         queryParams.push(perPage, offset);
 
-        const [customerResults] = await connection.query(customerQuery, queryParams);
+        const [customerResults] = await pool.query(customerQuery, queryParams);
 
         const meta = {
             total: totalCustomers,
@@ -167,7 +167,7 @@ export const uploadFaceIdImage = async (req, res) => {
     }
 
     try {
-        const [results] = await connection.query(
+        const [results] = await pool.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
@@ -197,13 +197,13 @@ export const uploadFaceIdImage = async (req, res) => {
         const fileUrl = `${baseUrl}/${req.file.filename}`;
 
         // อัปเดต URL ของไฟล์ในฐานข้อมูล
-        await connection.query(
+        await pool.query(
             "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
             [fileUrl, customer_id]
         );
         //console.log("Updated database with faceUrl:", fileUrl);
 
-        const [updatedUserResults] = await connection.query(
+        const [updatedUserResults] = await pool.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
@@ -249,7 +249,7 @@ export const getAvailableRewards = async (req, res) => {
             queryParams.push(canRedeem === 'true' ? 1 : 0);
         }
 
-        const [countResults] = await connection.query(countQuery, queryParams);
+        const [countResults] = await pool.query(countQuery, queryParams);
         let totalRewards = countResults[0].total;
 
         let totalPages = Math.ceil(totalRewards / perPage);
@@ -266,7 +266,7 @@ export const getAvailableRewards = async (req, res) => {
         rewardQuery += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
         rewardQueryParams.push(perPage, offset);
 
-        const [rewardResults] = await connection.query(rewardQuery, rewardQueryParams);
+        const [rewardResults] = await pool.query(rewardQuery, rewardQueryParams);
 
         return res.status(200).json({
             meta: {
@@ -298,7 +298,7 @@ export const redeemReward = async (req, res) => {
 
     try {
         // ตรวจสอบว่าลูกค้ามีอยู่จริงและมีแต้มเพียงพอ
-        const [customerRows] = await connection.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
+        const [customerRows] = await pool.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
 
         if (customerRows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบลูกค้าที่ต้องการ' });
@@ -312,7 +312,7 @@ export const redeemReward = async (req, res) => {
         }
 
         // ตรวจสอบว่ารางวัลมีอยู่จริงและมีจำนวนที่ยังไม่หมด
-        const [rewardRows] = await connection.query('SELECT * FROM rewards WHERE id = ?', [rewardId]);
+        const [rewardRows] = await pool.query('SELECT * FROM rewards WHERE id = ?', [rewardId]);
 
         if (rewardRows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบรางวัลที่ต้องการแลก' });
@@ -331,35 +331,35 @@ export const redeemReward = async (req, res) => {
         }
 
         // เริ่ม Transaction
-        await connection.beginTransaction();
+        await pool.beginTransaction();
 
         try {
             // หักแต้มจากลูกค้า
-            await connection.query(
+            await pool.query(
                 'UPDATE customerinfo SET total_point = total_point - ? WHERE customer_id = ?',
                 [reward.points_required, customerId]
             );
 
             // ลดจำนวนของรางวัล
-            await connection.query(
+            await pool.query(
                 'UPDATE rewards SET amount = amount - 1 WHERE id = ?',
                 [rewardId]
             );
 
             // เพิ่มรายการแลกรางวัลลงใน customer_rewards
-            await connection.query(
+            await pool.query(
                 'INSERT INTO customer_rewards (customer_id, reward_id, status) VALUES (?, ?, ?)',
                 [customerId, rewardId, 'used']
             );
 
             // Commit Transaction
-            await connection.commit();
+            await pool.commit();
 
             return res.status(200).json({ message: 'แลกรางวัลสำเร็จแล้ว' });
 
         } catch (err) {
             // Rollback Transaction หากเกิดข้อผิดพลาด
-            await connection.rollback();
+            await pool.rollback();
             console.error('Transaction Error:', err);
             return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแลกรางวัล' });
         }
@@ -408,14 +408,14 @@ export const getCustomerRewardHistory = async (req, res) => {
 
     try {
         // ตรวจสอบว่าลูกค้ามีอยู่จริง
-        const [customerRows] = await connection.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
+        const [customerRows] = await pool.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
         if (customerRows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบลูกค้าที่ต้องการ' });
         }
 
         // คำนวณจำนวนทั้งหมด (total records)
         const countQuery = `SELECT COUNT(*) AS total FROM customer_rewards cr ${whereClause}`;
-        const [countResults] = await connection.query(countQuery, queryParams);
+        const [countResults] = await pool.query(countQuery, queryParams);
         const totalRecords = countResults[0].total;
         const totalPages = Math.ceil(totalRecords / parsedPerPage);
 
@@ -438,7 +438,7 @@ export const getCustomerRewardHistory = async (req, res) => {
             LIMIT ? OFFSET ?
         `;
         const historyQueryParams = [...queryParams, parsedPerPage, offset];
-        const [historyResults] = await connection.query(historyQuery, historyQueryParams);
+        const [historyResults] = await pool.query(historyQuery, historyQueryParams);
 
         return res.status(200).json({
             meta: {
@@ -473,7 +473,7 @@ export const useReward = async (req, res) => {
 
     try {
         // ตรวจสอบว่ามีรายการแลกรางวัลที่อยู่ในสถานะ 'pending'
-        const [rewardRows] = await connection.query(
+        const [rewardRows] = await pool.query(
             'SELECT * FROM customer_rewards WHERE customer_id = ? AND reward_id = ? AND status = ?',
             [customerId, rewardId, 'pending']
         );
@@ -485,7 +485,7 @@ export const useReward = async (req, res) => {
         const rewardEntry = rewardRows[0];
 
         // เปลี่ยนสถานะเป็น 'used' และบันทึกเวลาที่ใช้
-        await connection.query(
+        await pool.query(
             'UPDATE customer_rewards SET status = ?, used_at = ? WHERE id = ?',
             ['used', new Date(), rewardEntry.id]
         );

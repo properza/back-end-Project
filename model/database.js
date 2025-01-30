@@ -1,14 +1,13 @@
-// database.js
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-let connection;
+let pool;
 
 async function connectDB() {
   try {
-    connection = await mysql.createConnection(process.env.DATABASE_URL);
+    pool = mysql.createPool(process.env.DATABASE_URL);
     console.log('Connected to MySQL database');
   } catch (err) {
     console.error('Error connecting to MySQL database:', err);
@@ -17,4 +16,4 @@ async function connectDB() {
 
 await connectDB();
 
-export default connection;
+export default pool;
