@@ -259,7 +259,7 @@ export const getAvailableRewards = async (req, res) => {
     }
 };
 
-xport const redeemReward = async (req, res) => {
+export const redeemReward = async (req, res) => {
     const { customerId, rewardId } = req.body;
 
     console.log("Received Data:", req.body); // Debug ค่า input
