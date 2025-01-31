@@ -317,7 +317,7 @@ export const redeemReward = async (req, res) => {
             // เพิ่มข้อมูลการแลกลง customer_rewards
             await connection.query(
                 'INSERT INTO customer_rewards (customer_id, reward_id, status) VALUES (?, ?, ?)',
-                [customerId, rewardId, 'used']
+                [customerId, rewardId, 'pending']
             );
 
             // **Commit Transaction**
