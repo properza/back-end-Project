@@ -174,11 +174,11 @@ export const uploadFaceIdImage = async (req, res) => {
 
         const fileUrls = req.files.map(file => file.location);
 
-        const fileUrlsJson = JSON.stringify(fileUrls);
+        // const fileUrlsJson = JSON.stringify(fileUrls);
 
         await pool.query(
             "UPDATE customerinfo SET faceUrl = ? WHERE customer_id = ?",
-            [fileUrlsJson, customer_id]
+            [JSON.stringify(fileUrls), customer_id]
         );
 
         return res.status(200).json({
