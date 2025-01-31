@@ -262,82 +262,65 @@ export const getAvailableRewards = async (req, res) => {
 export const redeemReward = async (req, res) => {
     const { customerId, rewardId } = req.body;
 
-    // ตรวจสอบข้อมูลที่จำเป็น
+    console.log("Received Data:", req.body); // Debug ค่า input
+
     if (!customerId || !rewardId) {
         return res.status(400).json({ message: 'กรุณาส่ง customerId และ rewardId' });
     }
 
     try {
-        // ตรวจสอบว่าลูกค้ามีอยู่จริงและมีแต้มเพียงพอ
         const [customerRows] = await pool.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
-
         if (customerRows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบลูกค้าที่ต้องการ' });
         }
 
         const customer = customerRows[0];
 
-        // ตรวจสอบว่าลูกค้ามีแต้มเพียงพอ
-        if (customer.total_point < 0) { // This condition seems incorrect; likely should check against reward's points_required
-            return res.status(400).json({ message: 'แต้มของลูกค้าไม่เพียงพอ' });
-        }
-
-        // ตรวจสอบว่ารางวัลมีอยู่จริงและมีจำนวนที่ยังไม่หมด
         const [rewardRows] = await pool.query('SELECT * FROM rewards WHERE id = ?', [rewardId]);
-
         if (rewardRows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบรางวัลที่ต้องการแลก' });
         }
 
         const reward = rewardRows[0];
 
-        // ตรวจสอบว่าแต้มของลูกค้ามากกว่าหรือเท่ากับ points_required
         if (customer.total_point < reward.points_required) {
             return res.status(400).json({ message: 'แต้มของลูกค้าไม่เพียงพอในการแลกรางวัลนี้' });
         }
 
-        // ตรวจสอบว่ารางวัลยังมีจำนวน
         if (reward.amount <= 0) {
             return res.status(400).json({ message: 'รางวัลนี้หมดแล้ว' });
         }
 
         // เริ่ม Transaction
         await pool.beginTransaction();
-
         try {
-            // หักแต้มจากลูกค้า
             await pool.query(
                 'UPDATE customerinfo SET total_point = total_point - ? WHERE customer_id = ?',
                 [reward.points_required, customerId]
             );
 
-            // ลดจำนวนของรางวัล
             await pool.query(
                 'UPDATE rewards SET amount = amount - 1 WHERE id = ?',
                 [rewardId]
             );
 
-            // เพิ่มรายการแลกรางวัลลงใน customer_rewards
             await pool.query(
                 'INSERT INTO customer_rewards (customer_id, reward_id, status) VALUES (?, ?, ?)',
                 [customerId, rewardId, 'used']
             );
 
-            // Commit Transaction
             await pool.commit();
-
             return res.status(200).json({ message: 'แลกรางวัลสำเร็จแล้ว' });
 
         } catch (err) {
-            // Rollback Transaction หากเกิดข้อผิดพลาด
             await pool.rollback();
             console.error('Transaction Error:', err);
-            return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแลกรางวัล' });
+            return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแลกรางวัล', error: err.message });
         }
 
     } catch (error) {
         console.error("Error redeeming reward:", error);
-        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์", error: error.message });
     }
 };
 
@@ -431,8 +414,6 @@ export const getCustomerRewardHistory = async (req, res) => {
         return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
     }
 };
-
-
 
 export const useReward = async (req, res) => {
     const { customerId, rewardId } = req.body;
