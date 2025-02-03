@@ -339,7 +339,15 @@ export const sendLineMessage = async (req, res) => {
 // controllers/adminController.js
 
 export const createReward = async (req, res) => {
-    const { reward_name, points_required, amount, can_redeem, rewardUrl } = req.body;
+    const { reward_name, points_required, amount, can_redeem } = req.body;
+
+    // ตรวจสอบว่าไฟล์มีการอัปโหลดหรือไม่
+    let rewardUrl = null;
+    if (req.files && req.files.length > 0) {
+        // รับลิงก์ไฟล์จากการอัปโหลด
+        const fileUrls = req.files.map(file => file.location);  
+        rewardUrl = JSON.stringify(fileUrls);  
+    }
 
     try {
         // เพิ่มข้อมูลรางวัลใหม่ลงในตาราง rewards
@@ -347,8 +355,6 @@ export const createReward = async (req, res) => {
             'INSERT INTO rewards (reward_name, points_required, amount, can_redeem, rewardUrl) VALUES (?, ?, ?, ?, ?)',
             [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, rewardUrl || null]
         );
-
-        //console.log('Insert Reward Result:', result);
 
         res.status(201).json({
             message: 'สร้างรางวัลสำเร็จแล้ว',
@@ -358,7 +364,7 @@ export const createReward = async (req, res) => {
                 points_required,
                 amount,
                 can_redeem: can_redeem !== undefined ? can_redeem : true,
-                rewardUrl: rewardUrl || null,
+                rewardUrl: rewardUrl ? JSON.parse(rewardUrl) : null,
                 created_at: new Date()
             }
         });
@@ -367,7 +373,6 @@ export const createReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรางวัล' });
     }
 };
-
 
 export const getAllRewards = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;

@@ -7,6 +7,7 @@ import {
     deleteAdmin , deleteReward
 } from '../controllers/adminController.js';
 import { verifyToken, verifySuperAdmin } from '../middleware/authMiddleware.js';
+import upload from '../middleware/fileUpload.js';
 
 const router = Router();
 
@@ -17,7 +18,7 @@ router.get('/event/super_admin', verifySuperAdmin, getAllEvents);
 router.get('/auth', verifyToken, getAdminData);
 router.post('/logout', verifyToken, logout);
 router.post('/sendMessage', verifyToken, sendLineMessage);
-router.post('/createReward', verifyToken, createReward);
+router.post('/createReward', verifyToken, upload, createReward);
 router.get('/rewards', verifyToken, getAllRewards);
 router.put('/rewards/:reward_id', verifyToken, updateReward);
 router.delete('/rewards/:reward_id', verifyToken, deleteReward);
