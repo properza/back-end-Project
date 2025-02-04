@@ -452,7 +452,7 @@ export const updateReward = async (req, res) => {
 
     // ตรวจสอบไฟล์ที่อัปโหลด
     if (req.files && req.files.length > 0) {
-        rewardUrl = req.files.map(file => file.location); // เก็บ URL ของไฟล์ที่อัปโหลด
+        rewardUrl = JSON.stringify(req.files.map(file => file.location)); // แปลงเป็น string
     }
 
     try {
@@ -505,6 +505,7 @@ export const updateReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขรางวัล' });
     }
 };
+
 
 export const deleteReward = async (req, res) => {
     const { reward_id } = req.params;
