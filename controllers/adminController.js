@@ -348,11 +348,14 @@ export const createReward = async (req, res) => {
         fileUrls = req.files.map(file => file.location);
     }
 
+    // ตรวจสอบและตั้งค่าปริยายสำหรับ can_redeem
+    const validCanRedeem = (can_redeem !== undefined) ? can_redeem : true;  // ให้ค่า default เป็น true ถ้าไม่มีการส่งค่า
+
     try {
         // เพิ่มข้อมูลรางวัลใหม่ลงในตาราง rewards
         const [result] = await pool.execute(
             'INSERT INTO rewards (reward_name, points_required, amount, can_redeem, rewardUrl) VALUES (?, ?, ?, ?, ?)',
-            [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, JSON.stringify(fileUrls)]
+            [reward_name, points_required, amount, validCanRedeem, JSON.stringify(fileUrls)]
         );
 
         res.status(201).json({
@@ -362,7 +365,7 @@ export const createReward = async (req, res) => {
                 reward_name,
                 points_required,
                 amount,
-                can_redeem: can_redeem !== undefined ? can_redeem : true,
+                can_redeem: validCanRedeem,
                 rewardUrl: fileUrls,
                 created_at: new Date()
             }
@@ -372,6 +375,7 @@ export const createReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรางวัล' });
     }
 };
+
 
 
 export const getAllRewards = async (req, res) => {
