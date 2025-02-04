@@ -20,7 +20,7 @@ router.post('/logout', verifyToken, logout);
 router.post('/sendMessage', verifyToken, sendLineMessage);
 router.post('/createReward', verifyToken, upload, createReward);
 router.get('/rewards', verifyToken, getAllRewards);
-router.put('/rewards/:reward_id', verifyToken, updateReward);
+router.put('/rewards/:reward_id', verifyToken, upload, updateReward);
 router.delete('/rewards/:reward_id', verifyToken, deleteReward);
 
 router.get('/admins/getadmin', verifySuperAdmin, getAdmins);

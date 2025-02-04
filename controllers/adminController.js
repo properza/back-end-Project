@@ -442,7 +442,8 @@ export const getAllRewards = async (req, res) => {
 
 export const updateReward = async (req, res) => {
     const { reward_id } = req.params;
-    const { reward_name, points_required, amount, can_redeem, rewardUrl } = req.body;
+    const { reward_name, points_required, amount, can_redeem } = req.body;
+    let rewardUrl = null; // กำหนดค่าเริ่มต้นให้กับ rewardUrl
 
     const id = parseInt(reward_id);
     if (isNaN(id) || id < 1) {
@@ -454,25 +455,9 @@ export const updateReward = async (req, res) => {
         return res.status(400).json({ message: 'ต้องการข้อมูลอย่างน้อยหนึ่งฟิลด์เพื่อการแก้ไข' });
     }
 
-    // ตรวจสอบประเภทข้อมูลแบบแมนนวล
-    if (reward_name && typeof reward_name !== 'string') {
-        return res.status(400).json({ message: 'reward_name ต้องเป็นสตริง' });
-    }
-
-    if (points_required !== undefined && (typeof points_required !== 'number' || points_required < 0)) {
-        return res.status(400).json({ message: 'points_required ต้องเป็นจำนวนเต็มที่ไม่ติดลบ' });
-    }
-
-    if (amount !== undefined && (typeof amount !== 'number' || amount < 0)) {
-        return res.status(400).json({ message: 'amount ต้องเป็นจำนวนเต็มที่ไม่ติดลบ' });
-    }
-
-    if (can_redeem !== undefined && typeof can_redeem !== 'boolean') {
-        return res.status(400).json({ message: 'can_redeem ต้องเป็นบูลีน' });
-    }
-
-    if (rewardUrl !== undefined && typeof rewardUrl !== 'string') {
-        return res.status(400).json({ message: 'rewardUrl ต้องเป็นสตริงที่เป็น URL' });
+    // ตรวจสอบไฟล์ที่อัปโหลด
+    if (req.files && req.files.length > 0) {
+        rewardUrl = req.files.map(file => file.location); // เก็บ URL ของไฟล์ที่อัปโหลด
     }
 
     try {
@@ -502,9 +487,9 @@ export const updateReward = async (req, res) => {
             updateFields.push('can_redeem = ?');
             queryParams.push(can_redeem ? 1 : 0);
         }
-        if (rewardUrl !== undefined) {
+        if (rewardUrl !== null) {  // ถ้ามีไฟล์ URL
             updateFields.push('rewardUrl = ?');
-            queryParams.push(rewardUrl);
+            queryParams.push(rewardUrl); // อัปเดต URL ของไฟล์
         }
 
         if (updateFields.length === 0) {
@@ -525,6 +510,7 @@ export const updateReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขรางวัล' });
     }
 };
+
 
 export const deleteReward = async (req, res) => {
     const { reward_id } = req.params;
