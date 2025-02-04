@@ -339,7 +339,7 @@ export const sendLineMessage = async (req, res) => {
 // controllers/adminController.js
 
 export const createReward = async (req, res) => {
-    const { reward_name, points_required, amount, can_redeem } = req.body;
+    let { reward_name, points_required, amount, can_redeem } = req.body;
 
     try {
         // ตรวจสอบว่าไฟล์ถูกส่งมาหรือไม่
@@ -347,13 +347,25 @@ export const createReward = async (req, res) => {
             return res.status(400).json({ message: 'กรุณาอัปโหลดไฟล์รูปภาพ' });
         }
 
+        // แปลง points_required และ amount เป็น integer
+        points_required = parseInt(points_required);
+        amount = parseInt(amount);
+
+        // ตรวจสอบให้แน่ใจว่า points_required และ amount เป็น integer
+        if (isNaN(points_required) || isNaN(amount)) {
+            return res.status(400).json({ message: 'กรุณากรอกค่าของ points_required และ amount เป็นตัวเลขที่ถูกต้อง' });
+        }
+
+        // ตรวจสอบค่า can_redeem ให้เป็น boolean
+        can_redeem = can_redeem === undefined ? true : JSON.parse(can_redeem);
+
         // ดึง URLs ของไฟล์ที่อัปโหลด
         const fileUrls = req.files.map(file => file.location);
 
         // เพิ่มข้อมูลรางวัลใหม่ลงในตาราง rewards
         const [result] = await pool.execute(
             'INSERT INTO rewards (reward_name, points_required, amount, can_redeem, rewardUrl) VALUES (?, ?, ?, ?, ?)',
-            [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, JSON.stringify(fileUrls)]
+            [reward_name, points_required, amount, can_redeem, JSON.stringify(fileUrls)]  // บันทึก URL เป็น JSON string
         );
 
         res.status(201).json({
@@ -363,7 +375,7 @@ export const createReward = async (req, res) => {
                 reward_name,
                 points_required,
                 amount,
-                can_redeem: can_redeem !== undefined ? can_redeem : true,
+                can_redeem,
                 rewardUrl: fileUrls,  // ส่งคืน URL ของไฟล์
                 created_at: new Date()
             }
@@ -373,8 +385,6 @@ export const createReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรางวัล' });
     }
 };
-
-
 
 export const getAllRewards = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
