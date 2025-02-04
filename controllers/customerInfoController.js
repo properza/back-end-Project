@@ -434,7 +434,6 @@ export const getCustomerRewardHistory = async (req, res) => {
 export const useReward = async (req, res) => {
     const { customerId, rewardId } = req.body;
 
-    // ตรวจสอบข้อมูลที่จำเป็น
     if (!customerId || !rewardId) {
         return res.status(400).json({ message: 'กรุณาส่ง customerId และ rewardId' });
     }
