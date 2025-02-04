@@ -23,9 +23,9 @@ router.get('/rewards', verifyToken, getAllRewards);
 router.put('/rewards/:reward_id', verifyToken, upload, updateReward);
 router.delete('/rewards/:reward_id', verifyToken, deleteReward);
 
-router.get('/admins/getadmin', verifySuperAdmin, getAdmins);
-router.put('/admins/:adminId', verifySuperAdmin, updateAdmin);
-router.delete('/admins/:adminId', verifySuperAdmin, deleteAdmin);
+router.get('/admins/getadmin', verifyToken, getAdmins);
+router.put('/admins/:adminId', verifyToken, updateAdmin);
+router.delete('/admins/:adminId', verifyToken, deleteAdmin);
 
 
 // เส้นทางสำหรับดู event ที่เป็น "special"
