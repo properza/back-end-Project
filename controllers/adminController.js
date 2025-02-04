@@ -341,21 +341,19 @@ export const sendLineMessage = async (req, res) => {
 export const createReward = async (req, res) => {
     const { reward_name, points_required, amount, can_redeem } = req.body;
 
-    // ตรวจสอบว่าไฟล์มีการอัปโหลดหรือไม่
-    let fileUrls = [];
-    if (req.files && req.files.length > 0) {
-        // รับลิงก์ไฟล์จากการอัปโหลด
-        fileUrls = req.files.map(file => file.location);
-    }
-
-    // ตรวจสอบและตั้งค่าปริยายสำหรับ can_redeem
-    const validCanRedeem = (can_redeem !== undefined) ? can_redeem : true;  // ให้ค่า default เป็น true ถ้าไม่มีการส่งค่า
-
     try {
+        // ตรวจสอบว่าไฟล์ถูกส่งมาหรือไม่
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ message: 'กรุณาอัปโหลดไฟล์รูปภาพ' });
+        }
+
+        // ดึง URLs ของไฟล์ที่อัปโหลด
+        const fileUrls = req.files.map(file => file.location);
+
         // เพิ่มข้อมูลรางวัลใหม่ลงในตาราง rewards
         const [result] = await pool.execute(
             'INSERT INTO rewards (reward_name, points_required, amount, can_redeem, rewardUrl) VALUES (?, ?, ?, ?, ?)',
-            [reward_name, points_required, amount, validCanRedeem, JSON.stringify(fileUrls)]
+            [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, JSON.stringify(fileUrls)]
         );
 
         res.status(201).json({
@@ -365,8 +363,8 @@ export const createReward = async (req, res) => {
                 reward_name,
                 points_required,
                 amount,
-                can_redeem: validCanRedeem,
-                rewardUrl: fileUrls,
+                can_redeem: can_redeem !== undefined ? can_redeem : true,
+                rewardUrl: fileUrls,  // ส่งคืน URL ของไฟล์
                 created_at: new Date()
             }
         });
