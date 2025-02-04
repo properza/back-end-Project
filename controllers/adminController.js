@@ -443,16 +443,11 @@ export const getAllRewards = async (req, res) => {
 export const updateReward = async (req, res) => {
     const { reward_id } = req.params;
     const { reward_name, points_required, amount, can_redeem } = req.body;
-    let rewardUrl = null; // กำหนดค่าเริ่มต้นให้กับ rewardUrl
+    let rewardUrl = null;
 
     const id = parseInt(reward_id);
     if (isNaN(id) || id < 1) {
         return res.status(400).json({ message: 'reward_id ต้องเป็นจำนวนเต็มที่ถูกต้อง' });
-    }
-
-    // ตรวจสอบว่ามีฟิลด์ที่จะอัปเดต
-    if (!reward_name && points_required === undefined && amount === undefined && can_redeem === undefined && !rewardUrl) {
-        return res.status(400).json({ message: 'ต้องการข้อมูลอย่างน้อยหนึ่งฟิลด์เพื่อการแก้ไข' });
     }
 
     // ตรวจสอบไฟล์ที่อัปโหลด
@@ -510,7 +505,6 @@ export const updateReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขรางวัล' });
     }
 };
-
 
 export const deleteReward = async (req, res) => {
     const { reward_id } = req.params;
