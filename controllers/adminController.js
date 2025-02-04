@@ -343,17 +343,13 @@ export const createReward = async (req, res) => {
 
     // ตรวจสอบว่าไฟล์มีการอัปโหลดหรือไม่
     let rewardUrl = null;
-    if (req.files && req.files.length > 0) {
-        // เก็บ URL ของไฟล์ใน Array
-        const fileUrls = req.files.map(file => file.location);  // เก็บ URL ของไฟล์
-        rewardUrl = JSON.stringify(fileUrls);  // แปลงเป็น JSON string
-    }
+        const fileUrls = req.files.map(file => file.location);
 
     try {
         // เพิ่มข้อมูลรางวัลใหม่ลงในตาราง rewards
         const [result] = await pool.execute(
             'INSERT INTO rewards (reward_name, points_required, amount, can_redeem, rewardUrl) VALUES (?, ?, ?, ?, ?)',
-            [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, rewardUrl || null]
+            [reward_name, points_required, amount, can_redeem !== undefined ? can_redeem : true, JSON.stringify(fileUrls)]
         );
 
         res.status(201).json({
@@ -364,7 +360,7 @@ export const createReward = async (req, res) => {
                 points_required,
                 amount,
                 can_redeem: can_redeem !== undefined ? can_redeem : true,
-                rewardUrl: rewardUrl ? JSON.parse(rewardUrl) : null,  // แปลงกลับจาก JSON string เป็นอาเรย์
+                rewardUrl: fileUrls,
                 created_at: new Date()
             }
         });
@@ -373,7 +369,6 @@ export const createReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรางวัล' });
     }
 };
-
 
 export const getAllRewards = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
