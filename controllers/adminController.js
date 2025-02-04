@@ -342,8 +342,11 @@ export const createReward = async (req, res) => {
     const { reward_name, points_required, amount, can_redeem } = req.body;
 
     // ตรวจสอบว่าไฟล์มีการอัปโหลดหรือไม่
-    let rewardUrl = null;
-        const fileUrls = req.files.map(file => file.location);
+    let fileUrls = [];
+    if (req.files && req.files.length > 0) {
+        // รับลิงก์ไฟล์จากการอัปโหลด
+        fileUrls = req.files.map(file => file.location);
+    }
 
     try {
         // เพิ่มข้อมูลรางวัลใหม่ลงในตาราง rewards
@@ -369,6 +372,7 @@ export const createReward = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรางวัล' });
     }
 };
+
 
 export const getAllRewards = async (req, res) => {
     let currentPage = parseInt(req.query.page) || 1;
