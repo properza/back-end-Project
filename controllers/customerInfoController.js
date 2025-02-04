@@ -446,10 +446,12 @@ export const useReward = async (req, res) => {
         );
 
         if (rewardRows.length === 0) {
+            console.log("No pending rewards found for customer:", customerId, "and reward:", rewardId);
             return res.status(404).json({ message: 'ไม่พบรายการแลกรางวัลที่ต้องการใช้งาน หรือรางวัลนั้นไม่อยู่ในสถานะ pending' });
         }
 
         const rewardEntry = rewardRows[0];
+        console.log("Reward entry found:", rewardEntry);
 
         // เปลี่ยนสถานะเป็น 'used' และบันทึกเวลาที่ใช้
         await pool.query(
@@ -464,3 +466,4 @@ export const useReward = async (req, res) => {
         return res.status(500).json({ message: "เกิดข้อผิดพลาดในการใช้รางวัล" });
     }
 };
+
