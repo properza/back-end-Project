@@ -101,9 +101,24 @@ export const getEventWithCustomerCount = async (req, res) => {
     }
 };
 
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000; // รัศมีของโลกในเมตร
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+};
+
 export const registerCustomerForEvent = async (req, res) => {
     const { eventId } = req.params;
-    const { customerId } = req.body;
+    const { customerId, customerLatitude, customerLongitude  } = req.body;
 
     // ตรวจสอบ customerId
     if (!customerId) {
@@ -130,6 +145,18 @@ export const registerCustomerForEvent = async (req, res) => {
         }
 
         const eventDetails = eventResults[0];
+        const eventLatitude = eventDetails.latitude; // สมมติว่ามี latitude ในฐานข้อมูลกิจกรรม
+        const eventLongitude = eventDetails.longitude; // สมมติว่ามี longitude ในฐานข้อมูลกิจกรรม
+
+        // คำนวณระยะทางระหว่างกิจกรรมกับลูกค้า
+        const distance = calculateDistance(customerLatitude, customerLongitude, eventLatitude, eventLongitude);
+
+        // ตรวจสอบระยะห่าง
+        if (distance > 600) {
+            return res.status(400).json({ message: "คุณอยู่นอกเขตพื้นที่กิจกรรม" });
+        }
+
+        // const eventDetails = eventResults[0];
         const timezone = 'Asia/Bangkok';
         const currentTime = DateTime.now().setZone(timezone);
 
