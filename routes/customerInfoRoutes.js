@@ -9,7 +9,7 @@ const router = Router();
 
 
 router.post('/uploadEvent/', upload, createEventInCloud);
-router.get('/cloud/customer/:customerId', getCustomerEvents);
+router.get('/cloud/customer/:customer_id', getCustomerEvents);
 router.get('/customers', getAllCustomers);
 router.post('/customerinfo', createOrLoginCustomer);
 router.put('/customerinfo/updateprofile',  updateCustomerProfile);
