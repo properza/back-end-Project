@@ -152,8 +152,30 @@ export const registerCustomerForEvent = async (req, res) => {
         const distance = calculateDistance(customerLatitude, customerLongitude, eventLatitude, eventLongitude);
 
         // ตรวจสอบระยะห่าง
-        if (distance > 60) {
+        if (distance > 80) {
             return res.status(400).json({ message: "คุณอยู่นอกเขตพื้นที่กิจกรรม" });
+        }
+
+        const [customerResults] = await pool.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customerId]
+        );
+
+        if (customerResults.length === 0) {
+            return res.status(404).json({ message: "ไม่พบข้อมูลผู้ใช้" });
+        }
+
+        const customerinfo = customerResults[0];
+        
+        // เปลี่ยนค่า st_tpye ของลูกค้า
+        let customerType = "normal";
+        if (customerinfo.st_tpye === "กยศ.") {
+            customerType = "special";
+        }
+
+        // เปรียบเทียบ st_tpye ของลูกค้ากับ event_type ของกิจกรรม
+        if (customerType !== eventDetails.event_type) {
+            return res.status(400).json({ message: "ประเภทกิจกรรมไม่ตรงกับประเภทของผู้ใช้" });
         }
 
         // const eventDetails = eventResults[0];
