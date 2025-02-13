@@ -99,7 +99,6 @@ export const createEventInCloud = async (req, res) => {
     }
 };
 
-
 export const getCustomerEvents = async (req, res) => {
     const { customer_id } = req.params;  // ดึง customer_id จาก params
     let currentPage = parseInt(req.query.page) || 1;  // หน้าแรก (default = 1)
@@ -123,7 +122,7 @@ export const getCustomerEvents = async (req, res) => {
         );
 
         if (customerResults.length === 0) {
-            return res.status(404).json({ message: 'ไม่พบข้อมูลลูกค้า' });
+            return res.status(404).json({ message: `ไม่พบข้อมูลลูกค้า ด้วย customer_id: ${customer_id}` });
         }
 
         // คำนวณจำนวนทั้งหมด (total records)
