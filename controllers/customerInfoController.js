@@ -51,16 +51,19 @@ export const createOrLoginCustomer = async (req, res) => {
 export const createEventInCloud = async (req, res) => {
     const { event_name, customer_id } = req.body;
 
-    if (!event_name || !customer_id) {
-        return res.status(400).json({ message: 'กรุณาระบุ event_name และ customer_id ให้ครบถ้วน' });
+    if (!customer_id) {
+        return res.status(400).json({ message: "กรุณาระบุ customerId" });
+    }
+
+    if (!event_name) {
+        return res.status(400).json({ message: 'กรุณาระบุชื่อกิจกรรม' });
     }
 
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'กรุณาอัปโหลดรูปภาพ' });
     }
 
-    // เก็บ URL ของไฟล์ใน Array (รูปภาพเป็น JSON)
-    const imageUrls = req.files.map(file => file.location); // เก็บ URL ของไฟล์ภาพที่อัปโหลด
+    const imageUrls = req.files.map(file => file.location); 
 
     try {
         // เชื่อมโยงกับฐานข้อมูล customerinfo

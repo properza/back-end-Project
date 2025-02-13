@@ -8,8 +8,8 @@ const router = Router();
 ///cloud/customer/123?page=2&per_page=5
 
 
-router.get('/cloud/customer/:customerId', getCustomerEvents);
 router.post('/uploadEvent/', upload, createEventInCloud);
+router.get('/cloud/customer/:customerId', getCustomerEvents);
 router.get('/customers', getAllCustomers);
 router.post('/customerinfo', createOrLoginCustomer);
 router.put('/customerinfo/updateprofile',  updateCustomerProfile);
