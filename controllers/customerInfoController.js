@@ -76,6 +76,11 @@ export const createEventInCloud = async (req, res) => {
             return res.status(404).json({ message: "ไม่พบข้อมูลลูกค้า" });
         }
 
+        // ตรวจสอบประเภทของ customer_id ที่ส่งเข้าไป (กรณีเป็น UUID หรือ String)
+        if (typeof customer_id !== 'string') {
+            return res.status(400).json({ message: 'customer_id ต้องเป็น string' });
+        }
+
         // แทรกข้อมูลลงในตาราง cloud
         await pool.query(
             "INSERT INTO cloud (event_name, images, customer_id) VALUES (?, ?, ?)",
@@ -93,6 +98,7 @@ export const createEventInCloud = async (req, res) => {
         return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
     }
 };
+
 
 export const getCustomerEvents = async (req, res) => {
     const { customer_id } = req.params;  // ดึง customer_id จาก params
