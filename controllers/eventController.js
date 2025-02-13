@@ -152,7 +152,7 @@ export const registerCustomerForEvent = async (req, res) => {
         const distance = calculateDistance(customerLatitude, customerLongitude, eventLatitude, eventLongitude);
 
         // ตรวจสอบระยะห่าง
-        if (distance > 600) {
+        if (distance > 60) {
             return res.status(400).json({ message: "คุณอยู่นอกเขตพื้นที่กิจกรรม" });
         }
 
