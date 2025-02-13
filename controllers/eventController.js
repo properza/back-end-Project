@@ -145,10 +145,9 @@ export const registerCustomerForEvent = async (req, res) => {
         }
 
         const eventDetails = eventResults[0];
-        const eventLatitude = eventDetails.latitude; // สมมติว่ามี latitude ในฐานข้อมูลกิจกรรม
-        const eventLongitude = eventDetails.longitude; // สมมติว่ามี longitude ในฐานข้อมูลกิจกรรม
+        const eventLatitude = eventDetails.latitude;
+        const eventLongitude = eventDetails.longitude;
 
-        // คำนวณระยะทางระหว่างกิจกรรมกับลูกค้า
         const distance = calculateDistance(customerLatitude, customerLongitude, eventLatitude, eventLongitude);
 
         // ตรวจสอบระยะห่าง
@@ -602,5 +601,68 @@ export const DeleteEvent = async (req, res) => {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const getAllCloudEvents = async (req, res) => {
+    let currentPage = parseInt(req.query.page) || 1;  // หน้าแรก (default = 1)
+    let perPage = parseInt(req.query.per_page) || 10;  // จำนวนข้อมูลต่อหน้า (default = 10)
+
+    if (isNaN(currentPage) || currentPage < 1) {
+        return res.status(400).json({ message: 'Invalid page number' });
+    }
+
+    if (isNaN(perPage) || perPage < 1) {
+        return res.status(400).json({ message: 'Invalid per_page number' });
+    }
+
+    const offset = (currentPage - 1) * perPage;
+
+    try {
+        // คำนวณจำนวนทั้งหมด (total records)
+        const countQuery = "SELECT COUNT(*) AS total FROM cloud";
+        const [countResults] = await pool.query(countQuery);
+        const totalRecords = countResults[0].total;
+        const totalPages = Math.ceil(totalRecords / perPage);
+
+        // สร้าง URL สำหรับการคำนวณหน้าต่าง ๆ
+        const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+        const constructUrl = (page) => {
+            const params = new URLSearchParams(req.query);
+            params.set('page', page);
+            params.set('per_page', perPage);
+            return `${baseUrl}?${params.toString()}`;
+        };
+
+        // ดึงข้อมูลจากตาราง cloud
+        const query = `
+            SELECT * FROM cloud 
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        `;
+        const [eventsResults] = await pool.query(query, [perPage, offset]);
+
+        // สร้างข้อมูล meta สำหรับ pagination
+        const meta = {
+            total: totalRecords,
+            per_page: perPage,
+            current_page: currentPage,
+            last_page: totalPages,
+            first_page: 1,
+            first_page_url: constructUrl(1),
+            last_page_url: constructUrl(totalPages),
+            next_page_url: currentPage < totalPages ? constructUrl(currentPage + 1) : null,
+            previous_page_url: currentPage > 1 ? constructUrl(currentPage - 1) : null
+        };
+
+        // ส่งข้อมูลให้ผู้ใช้
+        return res.status(200).json({
+            meta: meta,
+            data: eventsResults
+        });
+
+    } catch (error) {
+        console.error("Error fetching all cloud events:", error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
     }
 };

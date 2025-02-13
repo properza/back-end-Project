@@ -48,6 +48,122 @@ export const createOrLoginCustomer = async (req, res) => {
     }
 };
 
+export const createEventInCloud = async (req, res) => {
+    const { event_name, customer_id } = req.body;
+
+    if (!event_name || !customer_id) {
+        return res.status(400).json({ message: 'กรุณาระบุ event_name และ customer_id ให้ครบถ้วน' });
+    }
+
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'กรุณาอัปโหลดรูปภาพ' });
+    }
+
+    // เก็บ URL ของไฟล์ใน Array (รูปภาพเป็น JSON)
+    const imageUrls = req.files.map(file => file.location); // เก็บ URL ของไฟล์ภาพที่อัปโหลด
+
+    try {
+        // เชื่อมโยงกับฐานข้อมูล customerinfo
+        const [customerResults] = await pool.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        if (customerResults.length === 0) {
+            return res.status(404).json({ message: "ไม่พบข้อมูลลูกค้า" });
+        }
+
+        // แทรกข้อมูลลงในตาราง cloud
+        await pool.query(
+            "INSERT INTO cloud (event_name, images, customer_id) VALUES (?, ?, ?)",
+            [event_name, JSON.stringify(imageUrls), customer_id]
+        );
+
+        return res.status(201).json({
+            message: "เพิ่มกิจกรรมและรูปภาพลงใน cloud สำเร็จ",
+            event_name: event_name,
+            images: imageUrls,
+        });
+
+    } catch (err) {
+        console.error("เกิดข้อผิดพลาดในการเพิ่มกิจกรรม:", err);
+        return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
+    }
+};
+
+export const getCustomerEvents = async (req, res) => {
+    const { customer_id } = req.params;  // ดึง customer_id จาก params
+    let currentPage = parseInt(req.query.page) || 1;  // หน้าแรก (default = 1)
+    let perPage = parseInt(req.query.per_page) || 10;  // จำนวนข้อมูลต่อหน้า (default = 10)
+
+    if (isNaN(currentPage) || currentPage < 1) {
+        return res.status(400).json({ message: 'Invalid page number' });
+    }
+
+    if (isNaN(perPage) || perPage < 1) {
+        return res.status(400).json({ message: 'Invalid per_page number' });
+    }
+
+    const offset = (currentPage - 1) * perPage;
+
+    try {
+        // ตรวจสอบว่ามี customer_id ในฐานข้อมูลหรือไม่
+        const [customerResults] = await pool.query(
+            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        if (customerResults.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบข้อมูลลูกค้า' });
+        }
+
+        // คำนวณจำนวนทั้งหมด (total records)
+        const countQuery = "SELECT COUNT(*) AS total FROM cloud WHERE customer_id = ?";
+        const [countResults] = await pool.query(countQuery, [customer_id]);
+        const totalRecords = countResults[0].total;
+        const totalPages = Math.ceil(totalRecords / perPage);
+
+        // สร้าง URL สำหรับการคำนวณหน้าต่าง ๆ
+        const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+        const constructUrl = (page) => {
+            const params = new URLSearchParams(req.query);
+            params.set('page', page);
+            params.set('per_page', perPage);
+            return `${baseUrl}?${params.toString()}`;
+        };
+
+        // ดึงข้อมูลจากตาราง cloud ตาม customer_id
+        const query = `
+            SELECT * FROM cloud WHERE customer_id = ? 
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        `;
+        const [eventsResults] = await pool.query(query, [customer_id, perPage, offset]);
+
+        // สร้างข้อมูล meta สำหรับ pagination
+        const meta = {
+            total: totalRecords,
+            per_page: perPage,
+            current_page: currentPage,
+            last_page: totalPages,
+            first_page: 1,
+            first_page_url: constructUrl(1),
+            last_page_url: constructUrl(totalPages),
+            next_page_url: currentPage < totalPages ? constructUrl(currentPage + 1) : null,
+            previous_page_url: currentPage > 1 ? constructUrl(currentPage - 1) : null
+        };
+
+        // ส่งข้อมูลให้ผู้ใช้
+        return res.status(200).json({
+            meta: meta,
+            data: eventsResults
+        });
+
+    } catch (error) {
+        console.error("Error fetching events:", error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+    }
+};
 
 export const updateCustomerProfile = async (req, res) => {
     const {
