@@ -66,9 +66,9 @@ export const createEventInCloud = async (req, res) => {
     const imageUrls = req.files.map(file => file.location); 
 
     try {
-        // เชื่อมโยงกับฐานข้อมูล customerinfo
+        // เชื่อมโยงกับฐานข้อมูล customerinfo เพื่อดึง first_name และ last_name
         const [customerResults] = await pool.query(
-            "SELECT * FROM customerinfo WHERE customer_id = ?",
+            "SELECT first_name, last_name FROM customerinfo WHERE customer_id = ?",
             [customer_id]
         );
 
@@ -76,15 +76,12 @@ export const createEventInCloud = async (req, res) => {
             return res.status(404).json({ message: "ไม่พบข้อมูลลูกค้า" });
         }
 
-        // ตรวจสอบประเภทของ customer_id ที่ส่งเข้าไป (กรณีเป็น UUID หรือ String)
-        if (typeof customer_id !== 'string') {
-            return res.status(400).json({ message: 'customer_id ต้องเป็น string' });
-        }
+        const { first_name, last_name } = customerResults[0];
 
-        // แทรกข้อมูลลงในตาราง cloud
+        // แทรกข้อมูลลงในตาราง cloud พร้อมข้อมูล first_name และ last_name
         await pool.query(
-            "INSERT INTO cloud (event_name, images, customer_id) VALUES (?, ?, ?)",
-            [event_name, JSON.stringify(imageUrls), customer_id]
+            "INSERT INTO cloud (event_name, images, customer_id, first_name, last_name) VALUES (?, ?, ?, ?, ?)",
+            [event_name, JSON.stringify(imageUrls), customer_id, first_name, last_name]
         );
 
         return res.status(201).json({
