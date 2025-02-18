@@ -177,12 +177,18 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ประเภทกิจกรรมไม่ตรงกับประเภทของผู้ใช้" });
         }
 
+       
+
         // const eventDetails = eventResults[0];
         const timezone = 'Asia/Bangkok';
         const currentTime = DateTime.now().setZone(timezone);
+        const currentDate = currentTime.startOf('day');
 
         const startDateTimeStr = eventDetails.startDate.toISOString();
-        const endDateTimeStr = eventDetails.endDate.toISOString();
+        const endDateTimeStr = eventDetails.endDate.toISOString(); 
+        const eventStartDate = DateTime.fromJSDate(eventDetails.startDate).startOf('day');
+        const eventEndDate = DateTime.fromJSDate(eventDetails.endDate).endOf('day');
+        const eventDays = eventEndDate.diff(eventStartDate, 'days').days + 1;
 
         // Parse event start and end times using Luxon
         const eventStartUTC = DateTime.fromISO(startDateTimeStr, { zone: 'utc' });
@@ -211,10 +217,14 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "Invalid event start or end date/time format" });
         }
 
+        if (currentDate < eventStartDate || currentDate > eventEndDate) {
+            return res.status(400).json({ message: "ไม่อยู่ในช่วงเวลาของกิจกรรม" });
+        }
+
         // ตรวจสอบการลงทะเบียน
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? ORDER BY created_at ASC",
-            [eventId, customerId]
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND DATE(time_check) = ?",
+            [eventId, customerId, currentDate.toISODate()]
         );
 
         // Logic การลงทะเบียน
@@ -251,12 +261,25 @@ export const registerCustomerForEvent = async (req, res) => {
                 } else {
                     return res.status(400).json({ message: `หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว` });
                 }
+            } else if (registrationResults.length === 1) {
+                const lastReg = registrationResults[0];
+                if (lastReg.check_type === 'in') {
+                    await pool.query(
+                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'out', ?, ?)",
+                        [eventId, customerId, null, currentTime.toISO()]
+                    );
+                    return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ" });
+                } else {
+                    return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
+                }
             } else {
-                return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
+                return res.status(400).json({ message: `คุณได้ลงชื่อครบแล้ว ${imagesJson}` });
             }
         } else {
+            // After the event ends
             return res.status(400).json({ message: `หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว` });
         }
+
 
     } catch (error) {
         console.error(error);
