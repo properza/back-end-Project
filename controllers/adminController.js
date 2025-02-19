@@ -604,25 +604,21 @@ export const updateAdmin = async (req, res) => {
     const { adminId } = req.params;
     const { username, password, firstname, lastname } = req.body;
 
-    // ตรวจสอบว่า adminId เป็นตัวเลขและมีค่ามากกว่า 0
     const id = parseInt(adminId);
     if (isNaN(id) || id < 1) {
         return res.status(400).json({ message: 'adminId ต้องเป็นจำนวนเต็มที่ถูกต้อง' });
     }
 
-    // ตรวจสอบว่ามีข้อมูลที่จะอัปเดต
     if (!username && !password && !firstname && !lastname) {
         return res.status(400).json({ message: 'ต้องการข้อมูลอย่างน้อยหนึ่งฟิลด์เพื่อการอัปเดต' });
     }
 
     try {
-        // ตรวจสอบว่ามีแอดมินที่ต้องการอัปเดตอยู่จริง
         const [existingAdmin] = await pool.query('SELECT * FROM admins WHERE id = ?', [id]);
         if (!existingAdmin || existingAdmin.length === 0) {
             return res.status(404).json({ message: 'ไม่พบแอดมินที่ต้องการอัปเดต' });
         }
 
-        // ถ้ามีการอัปเดต username ให้ตรวจสอบว่าไม่มีแอดมินอื่นที่มี username เดียวกัน
         if (username) {
             const [usernameCheck] = await pool.query('SELECT * FROM admins WHERE username = ? AND id != ?', [username, id]);
             if (usernameCheck.length > 0) {
@@ -630,7 +626,6 @@ export const updateAdmin = async (req, res) => {
             }
         }
 
-        // เตรียมข้อมูลสำหรับการอัปเดต
         let updateFields = [];
         let queryParams = [];
 
@@ -675,14 +670,12 @@ export const updateAdmin = async (req, res) => {
 export const deleteAdmin = async (req, res) => {
     const { adminId } = req.params;
 
-    // ตรวจสอบว่า adminId เป็นตัวเลขและมีค่ามากกว่า 0
     const id = parseInt(adminId);
     if (isNaN(id) || id < 1) {
         return res.status(400).json({ message: 'adminId ต้องเป็นจำนวนเต็มที่ถูกต้อง' });
     }
 
     try {
-        // ตรวจสอบว่ามีแอดมินที่ต้องการลบอยู่จริง
         const [existingAdmin] = await pool.query('SELECT * FROM admins WHERE id = ?', [id]);
         if (!existingAdmin || existingAdmin.length === 0) {
             return res.status(404).json({ message: 'ไม่พบแอดมินที่ต้องการลบ' });
@@ -690,18 +683,15 @@ export const deleteAdmin = async (req, res) => {
 
         const admin = existingAdmin[0];
 
-        // ไม่อนุญาตให้ลบแอดมินที่เป็น super_admin
         if (admin.role === 'super_admin') {
             return res.status(403).json({ message: 'ไม่สามารถลบแอดมินที่เป็น super_admin ได้' });
         }
 
-        // ตรวจสอบว่ามีแอดมินอื่นที่เป็น super_admin อยู่เสมอ
         const [superAdmins] = await pool.query('SELECT * FROM admins WHERE role = ?', ['super_admin']);
         if (superAdmins.length === 0) {
             return res.status(400).json({ message: 'ต้องมีแอดมินที่เป็น super_admin อย่างน้อยหนึ่งคนเสมอ' });
         }
 
-        // ลบแอดมิน
         const [result] = await pool.execute('DELETE FROM admins WHERE id = ?', [id]);
 
         res.status(200).json({
@@ -715,7 +705,6 @@ export const deleteAdmin = async (req, res) => {
     }
 };
 
-// สร้างเส้นทางสำหรับดึงข้อมูล customer_rewards ตาม reward_id
 export const getCustomerRewardsByRewardId = async (req, res) => {
     const { rewardId } = req.params;
 
@@ -727,43 +716,36 @@ export const getCustomerRewardsByRewardId = async (req, res) => {
 
     let connection;
     try {
-        // สร้าง Connection ใหม่จาก Pool
         connection = await pool.getConnection();
 
-        // ดึงข้อมูล customer_rewards โดยใช้ reward_id
-        const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE id = ?', [rewardId]);
+        const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE id = ? AND status = "used"', [rewardId]);
 
         if (rows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบข้อมูลการแลกรางวัลสำหรับ reward_id นี้' });
         }
 
-        // ส่งข้อมูลที่ค้นพบกลับไปยังผู้ใช้
         return res.status(200).json({ data: rows });
 
     } catch (error) {
         console.error("Error retrieving customer_rewards by reward_id:", error);
         return res.status(500).json({ message: "เกิดข้อผิดพลาดในการดึงข้อมูล", error: error.message });
     } finally {
-        if (connection) connection.release(); // คืน connection กลับไปที่ pool
+        if (connection) connection.release();
     }
 };
 
-// ฟังก์ชันสำหรับเปลี่ยนสถานะของ customer_rewards จาก 'used' เป็น 'completed'
 export const updateStatusToCompleted = async (req, res) => {
-    const { id } = req.params;  // รับ id ของการแลกรางวัลจากพารามิเตอร์ใน URL
+    const { id } = req.params;
 
-    console.log("Received id:", id);  // Debug ค่า input
-
+    console.log("Received id:", id);
     if (!id) {
         return res.status(400).json({ message: 'กรุณาส่ง id' });
     }
 
     let connection;
     try {
-        // สร้าง Connection ใหม่จาก Pool
         connection = await pool.getConnection();
 
-        // ตรวจสอบว่ามีแถวที่มี id นี้ใน customer_rewards หรือไม่
         const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE id = ?', [id]);
         if (rows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบข้อมูลการแลกรางวัลที่มี id นี้' });
@@ -771,12 +753,13 @@ export const updateStatusToCompleted = async (req, res) => {
 
         const reward = rows[0];
 
-        // ตรวจสอบสถานะปัจจุบัน
         if (reward.status !== 'used') {
-            return res.status(400).json({ message: 'สถานะปัจจุบันไม่ใช่ "used" ไม่สามารถเปลี่ยนเป็น "completed" ได้' });
+            return res.status(400).json({ message: 'ของรางวัลยังไม่ถูกใช้' });
+        }
+        if (reward.status === 'completed') {
+            return res.status(400).json({ message: 'ของรางวัลถูกแลกไปแล้ว' });
         }
 
-        // อัพเดตสถานะจาก 'used' เป็น 'completed'
         await connection.query(
             'UPDATE customer_rewards SET status = ? WHERE id = ?',
             ['completed', id]
@@ -788,6 +771,6 @@ export const updateStatusToCompleted = async (req, res) => {
         console.error("Error updating status:", error);
         return res.status(500).json({ message: "เกิดข้อผิดพลาดในการเปลี่ยนสถานะ", error: error.message });
     } finally {
-        if (connection) connection.release(); // คืน connection กลับไปที่ pool
+        if (connection) connection.release();
     }
 };
