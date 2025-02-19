@@ -431,7 +431,7 @@ export const redeemReward = async (req, res) => {
 
             await connection.query(
                 'INSERT INTO customer_rewards (customer_id, reward_id, status, reward_url, customer_name) VALUES (?, ?, ?, ?, ?)',
-                [customerId, rewardId, 'pending', JSON.stringify(reward.reward_url), `${customer.first_name} ${customer.last_name}`]
+                [customerId, rewardId, 'pending', JSON.stringify(reward.rewardUrl), `${customer.first_name} ${customer.last_name}`]
             );
 
             await connection.commit();
@@ -512,7 +512,7 @@ export const getCustomerRewardHistory = async (req, res) => {
 
         // ดึงข้อมูลประวัติการแลก reward ตามหน้า
         const historyQuery = `
-            SELECT cr.id, cr.reward_id, cr.points_used, cr.amount, cr.status, cr.created_at, cr.updated_at, r.reward_name
+            SELECT cr.id, cr.reward_id, cr.points_used, cr.amount, cr.reward_url , cr.status, cr.created_at, cr.updated_at, r.reward_name
             FROM customer_rewards cr
             JOIN rewards r ON cr.reward_id = r.id
             ${whereClause}

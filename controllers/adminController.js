@@ -731,7 +731,7 @@ export const getCustomerRewardsByRewardId = async (req, res) => {
         connection = await pool.getConnection();
 
         // ดึงข้อมูล customer_rewards โดยใช้ reward_id
-        const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE reward_id = ?', [rewardId]);
+        const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE id = ?', [rewardId]);
 
         if (rows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบข้อมูลการแลกรางวัลสำหรับ reward_id นี้' });
