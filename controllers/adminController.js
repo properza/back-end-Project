@@ -718,12 +718,20 @@ export const getCustomerRewardsByRewardId = async (req, res) => {
     try {
         connection = await pool.getConnection();
 
-        const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE id = ? AND status = "used"', [rewardId]);
+        // Query เพื่อดึงข้อมูล reward โดยมี status = 'used' หรือ 'completed'
+        const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE id = ?', [rewardId]);
 
         if (rows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบข้อมูลการแลกรางวัลสำหรับ reward_id นี้' });
         }
 
+        const reward = rows[0];
+
+        if (reward.status === 'completed') {
+            return res.status(200).json({ message: 'รางวัลได้ถูกแลกไปแล้ว' });
+        }
+
+        // ถ้าสถานะเป็น 'used' หรือสถานะอื่น ๆ
         return res.status(200).json({ data: rows });
 
     } catch (error) {
@@ -733,6 +741,7 @@ export const getCustomerRewardsByRewardId = async (req, res) => {
         if (connection) connection.release();
     }
 };
+
 
 export const updateStatusToCompleted = async (req, res) => {
     const { id } = req.params;
