@@ -392,18 +392,15 @@ export const redeemReward = async (req, res) => {
 
     let connection;
     try {
-        // สร้าง Connection ใหม่จาก Pool
         connection = await pool.getConnection();
 
-        // ตรวจสอบว่าลูกค้ามีอยู่จริง
         const [customerRows] = await connection.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
         if (customerRows.length === 0) {
-            return res.status(404).json({ message: 'ไม่พบลูกค้าที่ต้องการ' });
+            return res.status(404).json({ message: 'ไม่พบผู้ใช้ที่ต้องการ' });
         }
 
         const customer = customerRows[0];
 
-        // ตรวจสอบว่ารางวัลมีอยู่จริง
         const [rewardRows] = await connection.query('SELECT * FROM rewards WHERE id = ?', [rewardId]);
         if (rewardRows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบรางวัลที่ต้องการแลก' });
@@ -411,44 +408,37 @@ export const redeemReward = async (req, res) => {
 
         const reward = rewardRows[0];
 
-        // ตรวจสอบแต้มของลูกค้า
         if (customer.total_point < reward.points_required) {
-            return res.status(400).json({ message: 'แต้มของลูกค้าไม่เพียงพอในการแลกรางวัลนี้' });
+            return res.status(400).json({ message: 'แต้มของผู้ใช้ไม่เพียงพอในการแลกรางวัลนี้' });
         }
 
         if (reward.amount <= 0) {
             return res.status(400).json({ message: 'รางวัลนี้หมดแล้ว' });
         }
 
-        // **เริ่ม Transaction**
         await connection.beginTransaction();
 
         try {
-            // หักแต้มลูกค้า
             await connection.query(
                 'UPDATE customerinfo SET total_point = total_point - ? WHERE customer_id = ?',
                 [reward.points_required, customerId]
             );
 
-            // ลดจำนวนรางวัล
             await connection.query(
                 'UPDATE rewards SET amount = amount - 1 WHERE id = ?',
                 [rewardId]
             );
 
-            // เพิ่มข้อมูลการแลกลง customer_rewards
             await connection.query(
-                'INSERT INTO customer_rewards (customer_id, reward_id, status) VALUES (?, ?, ?)',
-                [customerId, rewardId, 'pending']
+                'INSERT INTO customer_rewards (customer_id, reward_id, status, reward_url, customer_name) VALUES (?, ?, ?, ?, ?)',
+                [customerId, rewardId, 'pending', JSON.stringify(reward.reward_url), `${customer.first_name} ${customer.last_name}`]
             );
 
-            // **Commit Transaction**
             await connection.commit();
 
             return res.status(200).json({ message: 'แลกรางวัลสำเร็จแล้ว' });
 
         } catch (err) {
-            // **Rollback Transaction หากเกิดปัญหา**
             await connection.rollback();
             console.error('Transaction Error:', err);
             return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแลกรางวัล', error: err.message });
@@ -458,11 +448,11 @@ export const redeemReward = async (req, res) => {
         console.error("Error redeeming reward:", error);
         return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์", error: error.message });
     } finally {
-        if (connection) connection.release(); // คืน connection กลับไปที่ pool
+        if (connection) connection.release();
     }
 };
 
-// controllers/customerInfoController.js
+
 export const getCustomerRewardHistory = async (req, res) => {
     const { customerId } = req.params;  // ดึง customerId จาก params
     const { page = 1, per_page = 10, status } = req.query; // รองรับ pagination และ filter by status
@@ -502,7 +492,7 @@ export const getCustomerRewardHistory = async (req, res) => {
         // ตรวจสอบว่าลูกค้ามีอยู่จริง
         const [customerRows] = await pool.query('SELECT * FROM customerinfo WHERE customer_id = ?', [customerId]);
         if (customerRows.length === 0) {
-            return res.status(404).json({ message: 'ไม่พบลูกค้าที่ต้องการ' });
+            return res.status(404).json({ message: 'ไม่พบผู้ใช้ที่ต้องการ' });
         }
 
         // คำนวณจำนวนทั้งหมด (total records)
@@ -588,4 +578,5 @@ export const useReward = async (req, res) => {
         return res.status(500).json({ message: "เกิดข้อผิดพลาดในการใช้รางวัล" });
     }
 };
+
 

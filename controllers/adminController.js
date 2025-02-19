@@ -714,3 +714,80 @@ export const deleteAdmin = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบแอดมิน' });
     }
 };
+
+// สร้างเส้นทางสำหรับดึงข้อมูล customer_rewards ตาม reward_id
+export const getCustomerRewardsByRewardId = async (req, res) => {
+    const { rewardId } = req.params;
+
+    console.log("Received reward_id:", rewardId);
+
+    if (!rewardId) {
+        return res.status(400).json({ message: 'กรุณาส่ง reward_id' });
+    }
+
+    let connection;
+    try {
+        // สร้าง Connection ใหม่จาก Pool
+        connection = await pool.getConnection();
+
+        // ดึงข้อมูล customer_rewards โดยใช้ reward_id
+        const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE reward_id = ?', [rewardId]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบข้อมูลการแลกรางวัลสำหรับ reward_id นี้' });
+        }
+
+        // ส่งข้อมูลที่ค้นพบกลับไปยังผู้ใช้
+        return res.status(200).json({ data: rows });
+
+    } catch (error) {
+        console.error("Error retrieving customer_rewards by reward_id:", error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดในการดึงข้อมูล", error: error.message });
+    } finally {
+        if (connection) connection.release(); // คืน connection กลับไปที่ pool
+    }
+};
+
+// ฟังก์ชันสำหรับเปลี่ยนสถานะของ customer_rewards จาก 'used' เป็น 'completed'
+export const updateStatusToCompleted = async (req, res) => {
+    const { id } = req.params;  // รับ id ของการแลกรางวัลจากพารามิเตอร์ใน URL
+
+    console.log("Received id:", id);  // Debug ค่า input
+
+    if (!id) {
+        return res.status(400).json({ message: 'กรุณาส่ง id' });
+    }
+
+    let connection;
+    try {
+        // สร้าง Connection ใหม่จาก Pool
+        connection = await pool.getConnection();
+
+        // ตรวจสอบว่ามีแถวที่มี id นี้ใน customer_rewards หรือไม่
+        const [rows] = await connection.query('SELECT * FROM customer_rewards WHERE id = ?', [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'ไม่พบข้อมูลการแลกรางวัลที่มี id นี้' });
+        }
+
+        const reward = rows[0];
+
+        // ตรวจสอบสถานะปัจจุบัน
+        if (reward.status !== 'used') {
+            return res.status(400).json({ message: 'สถานะปัจจุบันไม่ใช่ "used" ไม่สามารถเปลี่ยนเป็น "completed" ได้' });
+        }
+
+        // อัพเดตสถานะจาก 'used' เป็น 'completed'
+        await connection.query(
+            'UPDATE customer_rewards SET status = ? WHERE id = ?',
+            ['completed', id]
+        );
+
+        return res.status(200).json({ message: 'สถานะการแลกรางวัลเปลี่ยนเป็น "completed" สำเร็จ' });
+
+    } catch (error) {
+        console.error("Error updating status:", error);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดในการเปลี่ยนสถานะ", error: error.message });
+    } finally {
+        if (connection) connection.release(); // คืน connection กลับไปที่ pool
+    }
+};
