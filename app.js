@@ -39,18 +39,13 @@ export const updateCustomerTotalHour = async () => {
              GROUP BY customer_id`
         );
 
-        if (results.length === 0) {
-            console.log('ไม่มีข้อมูลกิจกรรมที่อนุมัติ');
-            return;
-        }
-
         for (const result of results) {
             const customerId = result.customer_id;
             const totalScores = result.total_scores || 0;
 
             const totalHour = totalScores;
 
-            if (totalHour === 0) {
+            if (totalScores === 0) {
                 console.log(`total_hour is 0 for customer_id: ${customerId}`);
             }
 
@@ -69,7 +64,6 @@ export const updateCustomerTotalHour = async () => {
         console.error('Error updating total_hour:', err);
     }
 };
-
 
 setInterval(() => {
     console.log('กำลังคำนวณและอัปเดต total_hour...');
