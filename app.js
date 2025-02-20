@@ -61,38 +61,33 @@ const updateCustomerLevel = async () => {
 
 const checkAndSendScores = async () => {
     try {
-        // ตรวจสอบว่าเป็นวันที่ 20 เดือนมีนาคมหรือไม่
         const currentDate = new Date();
         const currentDay = currentDate.getDate();
-        const currentMonth = currentDate.getMonth() + 1; // เดือนเริ่มต้นจาก 0 (มกราคม = 0, กุมภาพันธ์ = 1, ...)
+        const currentMonth = currentDate.getMonth() + 1;
         
-        if (currentDay === 20 && currentMonth === 3) {  // วันที่ 20 มีนาคม
-            // ดึงข้อมูลคะแนน (scores_earn) จาก special_cl
+        if (currentDay === 20 && currentMonth === 3) {
+
             const [results] = await pool.query(
-                "SELECT customer_id, SUM(scores_earn) AS total_scores FROM special_cl GROUP BY customer_id"
+                "SELECT customer_id, SUM(scores_earn) AS total_scores FROM special_cl WHERE status = 'อนุมัติ' GROUP BY customer_id"
             );
 
-            // เช็คว่าแต่ละลูกค้าคะแนนสะสมได้มากกว่าหรือเท่ากับ 36 หรือไม่
             for (const row of results) {
                 const { customer_id, total_scores } = row;
 
                 if (total_scores < 36) {
                     const missingScore = 36 - total_scores;
 
-                    // ส่งข้อความแจ้งเตือนผ่าน LINE
                     const message = `ท่านยังขาดคะแนนจิตอาสาอีก ${missingScore} ชม.`;
 
-                    // ดึง LINE Token จาก environment variables
                     const lineToken = process.env.LINE_TOKEN;
                     const lineMessage = {
-                        to: customer_id, // ใช้ customer_id ในการส่ง
+                        to: customer_id,
                         messages: [{
                             type: 'text',
                             text: message
                         }]
                     };
 
-                    // ส่งข้อความผ่าน LINE API
                     await axios.post('https://api.line.me/v2/bot/message/push', lineMessage, {
                         headers: {
                             'Content-Type': 'application/json',
@@ -114,8 +109,8 @@ const checkAndSendScores = async () => {
 const deleteSpecialClData = async () => {
     try {
         const currentDate = new Date();
-        const targetDate = new Date('2025-03-20'); // วันที่ 20 มีนาคมของปีที่ต้องการลบข้อมูล
-        targetDate.setDate(targetDate.getDate() + 30); // บวก 30 วัน (จะเป็นวันที่ 19 เมษายน)
+        const targetDate = new Date('2025-03-20');
+        targetDate.setDate(targetDate.getDate() + 30);
 
         if (currentDate >= targetDate) {
             // ลบข้อมูลใน special_cl ทั้งหมด
