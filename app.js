@@ -45,6 +45,8 @@ export const updateCustomerTotalHour = async () => {
 
             const totalHour = totalScores;
 
+            console.log(totalScores)
+
             if (totalScores === 0) {
                 console.log(`total_hour is 0 for customer_id: ${customerId}`);
             }
@@ -55,11 +57,7 @@ export const updateCustomerTotalHour = async () => {
                  WHERE customer_id = ?`,
                 [totalHour, customerId]
             );
-
-            console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
         }
-
-        console.log('Finished updating total_hour for all customers.');
     } catch (err) {
         console.error('Error updating total_hour:', err);
     }
@@ -165,7 +163,7 @@ const deleteSpecialClData = async () => {
 
 //เช็คคะแนนจิตอาสา เพื่อแจ้งเตือนไปที่ นศ วันที่ 20 มีนา
 cron.schedule('0 0 20 3 *', () => {
-    console.log('กำลังเช็คคะแนนจิตอาสา...');
+    console.log('กำลังเช็ค ชม. จิตอาสา...');
     checkAndSendScores();
 });
 
