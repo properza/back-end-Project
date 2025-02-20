@@ -41,21 +41,29 @@ export const updateCustomerTotalHour = async () => {
 
         for (const result of results) {
             const customerId = result.customer_id;
-            // ตรวจสอบว่า total_scores เป็น null หรือ undefined แล้วกำหนดให้เป็น 0
-            const totalScores = result.total_scores ?? 0; // ใช้ ?? เพื่อกำหนดเป็น 0 ถ้าเป็น null หรือ undefined
+            // ใช้ total_scores หรือใช้ 0 หากไม่มีคะแนน
+            const totalScores = result.total_scores || 0;
 
+            // ตรวจสอบว่า totalScores เป็น 0 หรือไม่ และกำหนด total_hour ตามนั้น
             const totalHour = totalScores;
 
             // อัปเดต total_hour ใน customerinfo
-            await pool.query(
+            const [updateResult] = await pool.query(
                 `UPDATE customerinfo 
                  SET total_hour = ? 
                  WHERE customer_id = ?`,
                 [totalHour, customerId]
             );
+
+            // ตรวจสอบว่าอัปเดตสำเร็จหรือไม่
+            if (updateResult.affectedRows > 0) {
+                console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
+            } else {
+                console.log(`No update was made for customer_id: ${customerId}`);
+            }
         }
 
-        console.log('Successfully updated total_hour for all customers.');
+        console.log('Finished updating total_hour for all customers.');
     } catch (err) {
         console.error('Error updating total_hour:', err);
     }
