@@ -220,33 +220,35 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
     }
 
     try {
-        // คำนวณค่า offset
         const offset = (page - 1) * per_page;
 
-        // ตรวจสอบว่าค่าของ per_page เป็นตัวเลข
         const limit = parseInt(per_page, 10);
         const offsetValue = parseInt(offset, 10);
 
+        // คิวรีข้อมูลกิจกรรม
         const [events] = await pool.query(
-            "SELECT * FROM special_cl WHERE customer_id = ? LIMIT ? OFFSET ?",
-            [customer_id, limit, offsetValue]  // เปลี่ยน per_page และ offset ให้เป็นตัวเลข
+            "SELECT * FROM special_cl WHERE customer_id = ? AND status = 'อนุมัติ' LIMIT ? OFFSET ?",
+            [customer_id, limit, offsetValue]
         );
 
+        // คิวรีการนับจำนวนทั้งหมด
         const [totalCountResults] = await pool.query(
-            "SELECT COUNT(*) AS total FROM special_cl WHERE customer_id = ?",
+            "SELECT COUNT(*) AS total FROM special_cl WHERE customer_id = ? AND status = 'อนุมัติ'",
             [customer_id]
         );
 
         const totalRecords = totalCountResults[0].total;
         const totalPages = Math.ceil(totalRecords / limit); // ใช้ limit แทน per_page
 
+        // คิวรีการคำนวณคะแนนรวม
         const [totalScoreResults] = await pool.query(
-            "SELECT SUM(scores_earn) AS total_score FROM special_cl WHERE customer_id = ?",
+            "SELECT SUM(scores_earn) AS total_score FROM special_cl WHERE customer_id = ? AND status = 'อนุมัติ'",
             [customer_id]
         );
 
         const totalScore = totalScoreResults[0].total_score || 0;
 
+        // สร้าง URL สำหรับการแบ่งหน้า
         const constructUrl = (page) => {
             return `${req.protocol}://${req.get('host')}${req.baseUrl}/special-events/${customer_id}?page=${page}&per_page=${limit}`;
         };
@@ -273,8 +275,6 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
         return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
     }
 };
-
-
 
 export const getCustomerEvents = async (req, res) => {
     const { customer_id } = req.params;  

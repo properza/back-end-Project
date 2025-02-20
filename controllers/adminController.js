@@ -742,7 +742,6 @@ export const getCustomerRewardsByRewardId = async (req, res) => {
     }
 };
 
-
 export const updateStatusToCompleted = async (req, res) => {
     const { id } = req.params;
 
