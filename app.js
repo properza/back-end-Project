@@ -42,7 +42,7 @@ export const updateCustomerTotalHour = async () => {
 
         // ตรวจสอบผลลัพธ์ว่ามีข้อมูลหรือไม่
         if (results.length === 0) {
-            console.log('ไม่มีข้อมูลกิจกรรมที่อนุมัติ');
+            console.log('ไม่มีข้อมูลกิจกรรมที่อนุมัติ',results.total_scores);
             return;
         }
 
