@@ -233,7 +233,7 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
 
         // คิวรีการนับจำนวนทั้งหมด
         const [totalCountResults] = await pool.query(
-            "SELECT COUNT(*) AS total FROM special_cl WHERE customer_id = ? AND status = 'อนุมัติ'",
+            "SELECT COUNT(*) AS total FROM special_cl WHERE customer_id = ?",
             [customer_id]
         );
 
