@@ -46,7 +46,7 @@ export const updateCustomerTotalHour = async () => {
             const totalHour = totalScores || 0;
 
             await pool.query(
-                `UPDATE customerinfo 
+                `INSERT customerinfo 
                  SET total_hour = ? 
                  WHERE customer_id = ?`,
                 [totalHour, customerId]
