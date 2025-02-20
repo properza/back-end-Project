@@ -30,6 +30,40 @@ fs.mkdirSync(gfilesDir, { recursive: true });
 app.use(cors());
 app.use(express.json());
 
+export const updateCustomerTotalHour = async () => {
+    try {
+        const [results] = await pool.query(
+            `SELECT customer_id, SUM(scores_earn) AS total_scores
+             FROM special_cl
+             WHERE status = 'อนุมัติ'
+             GROUP BY customer_id`
+        );
+
+        for (const result of results) {
+            const customerId = result.customer_id;
+            const totalScores = result.total_scores;
+
+            const totalHour = totalScores;
+
+            await pool.query(
+                `UPDATE customerinfo 
+                 SET total_hour = ? 
+                 WHERE customer_id = ?`,
+                [totalHour, customerId]
+            );
+        }
+
+        console.log('Successfully updated total_hour for all customers.');
+    } catch (err) {
+        console.error('Error updating total_hour:', err);
+    }
+};
+
+setInterval(() => {
+    console.log('กำลังคำนวณและอัปเดต total_hour...');
+    updateCustomerTotalHour();
+}, 1000);
+
 const updateCustomerLevel = async () => {
     try {
         const currentDate = new Date();
@@ -44,7 +78,6 @@ const updateCustomerLevel = async () => {
 
             console.log(`${updateResults.affectedRows} records updated.`);
 
-            // ลบข้อมูลลูกค้าที่มี levelST = 8
             const [deleteResults] = await pool.query(
                 `DELETE FROM customerinfo
                  WHERE levelST = 8`
@@ -113,7 +146,6 @@ const deleteSpecialClData = async () => {
         targetDate.setDate(targetDate.getDate() + 30);
 
         if (currentDate >= targetDate) {
-            // ลบข้อมูลใน special_cl ทั้งหมด
             const [deleteResults] = await pool.query(
                 "DELETE FROM special_cl"
             );
