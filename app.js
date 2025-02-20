@@ -43,7 +43,7 @@ export const updateCustomerTotalHour = async () => {
             const customerId = result.customer_id;
             const totalScores = result.total_scores;
 
-            const totalHour = totalScores;
+            const totalHour = totalScores || 0;
 
             await pool.query(
                 `UPDATE customerinfo 
