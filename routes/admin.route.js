@@ -6,7 +6,8 @@ import {
     updateReward, getAdmins, updateAdmin,
     deleteAdmin , deleteReward ,
     getCustomerRewardsByRewardId ,
-    updateStatusToCompleted
+    updateStatusToCompleted ,
+    updateSpecialEventStatus
 } from '../controllers/adminController.js';
 import { verifyToken, verifySuperAdmin } from '../middleware/authMiddleware.js';
 import upload from '../middleware/fileUpload.js';
@@ -29,9 +30,12 @@ router.get('/admins/getadmin', verifySuperAdmin, getAdmins);
 router.put('/admins/:adminId', verifySuperAdmin, updateAdmin);
 router.delete('/admins/:adminId', verifySuperAdmin, deleteAdmin);
 
+//เส้นกิจกรรม กยศ.
+router.put('/special-events/status/:event_id ', verifyToken, updateSpecialEventStatus);
+
 //เส้นของรางวัล
-router.get('/customer_rewards/:rewardId',verifyToken, getCustomerRewardsByRewardId);
-router.patch('/customer_rewards/status/:id',verifyToken, updateStatusToCompleted);
+router.get('/customer_rewards/:rewardId', verifyToken, getCustomerRewardsByRewardId);
+router.patch('/customer_rewards/status/:id', verifyToken, updateStatusToCompleted);
 
 
 // เส้นทางสำหรับดู event ที่เป็น "special"

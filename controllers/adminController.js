@@ -783,3 +783,36 @@ export const updateStatusToCompleted = async (req, res) => {
         if (connection) connection.release();
     }
 };
+
+export const updateSpecialEventStatus = async (req, res) => {
+    const { event_id } = req.params;  // รับ event_id จาก params
+    const { status } = req.body;      // รับ status ใหม่จาก body
+
+    // ตรวจสอบว่า status ใหม่มีการระบุหรือไม่
+    if (!status || (status !== 'อนุมัติ' && status !== 'ไม่อนุมัติ')) {
+        return res.status(400).json({ message: "กรุณาระบุสถานะเป็น 'อนุมัติ' หรือ 'ไม่อนุมัติ'" });
+    }
+
+    try {
+        // อัปเดต status ในตาราง special_cl
+        const [updateResult] = await pool.query(
+            "UPDATE special_cl SET status = ? WHERE id = ?",
+            [status, event_id]
+        );
+
+        // ตรวจสอบว่ามีการอัปเดตแถวใดบ้าง
+        if (updateResult.affectedRows === 0) {
+            return res.status(404).json({ message: "ไม่พบกิจกรรมที่ต้องการอัปเดต" });
+        }
+
+        return res.status(200).json({
+            message: `สถานะของกิจกรรมถูกเปลี่ยนเป็น '${status}' สำเร็จ`,
+            event_id: event_id,
+            status: status
+        });
+
+    } catch (err) {
+        console.error("เกิดข้อผิดพลาดในการอัปเดตสถานะกิจกรรม:", err);
+        return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
+    }
+};

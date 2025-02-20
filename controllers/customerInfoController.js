@@ -43,7 +43,6 @@ export const createOrLoginCustomer = async (req, res) => {
             });
         }
     } catch (err) {
-        //console.log(err);
         return res.status(500).send("Internal server error");
     }
 };
@@ -63,10 +62,9 @@ export const createEventInCloud = async (req, res) => {
         return res.status(400).json({ message: 'กรุณาอัปโหลดรูปภาพ' });
     }
 
-    const imageUrls = req.files.map(file => file.location); 
+    const imageUrls = req.files.map(file => file.location);
 
     try {
-        // เชื่อมโยงกับฐานข้อมูล customerinfo เพื่อดึง first_name และ last_name
         const [customerResults] = await pool.query(
             "SELECT first_name, last_name FROM customerinfo WHERE customer_id = ?",
             [customer_id]
@@ -78,7 +76,6 @@ export const createEventInCloud = async (req, res) => {
 
         const { first_name, last_name } = customerResults[0];
 
-        // แทรกข้อมูลลงในตาราง cloud พร้อมข้อมูล first_name และ last_name
         await pool.query(
             "INSERT INTO cloud (event_name, images, customer_id, first_name, last_name) VALUES (?, ?, ?, ?, ?)",
             [event_name, JSON.stringify(imageUrls), customer_id, first_name, last_name]
@@ -96,11 +93,187 @@ export const createEventInCloud = async (req, res) => {
     }
 };
 
+export const getScores = async (req, res) => {
+    try {
+        const [scores] = await pool.query("SELECT * FROM scores");
+
+        if (scores.length === 0) {
+            return res.status(404).json({ message: "ไม่พบข้อมูลคะแนน" });
+        }
+
+        return res.status(200).json({
+            data: scores
+        });
+    } catch (err) {
+        console.error("เกิดข้อผิดพลาดในการดึงข้อมูลคะแนน:", err);
+        return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
+    }
+};
+
+
+export const createSpecialEvent = async (req, res) => {
+    const { event_name, customer_id, scores_id } = req.body;
+
+    if (!customer_id) {
+        return res.status(400).json({ message: "กรุณาระบุ customerId" });
+    }
+
+    if (!event_name) {
+        return res.status(400).json({ message: 'กรุณาระบุชื่อกิจกรรม' });
+    }
+
+    if (!scores_id) {
+        return res.status(400).json({ message: 'กรุณาระบุ scores_id' });
+    }
+
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'กรุณาอัปโหลดรูปภาพ' });
+    }
+
+    const imageUrls = req.files.map(file => file.location);
+
+    try {
+        const [customerResults] = await pool.query(
+            "SELECT first_name, last_name FROM customerinfo WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        if (customerResults.length === 0) {
+            return res.status(404).json({ message: "ไม่พบข้อมูลลูกค้า" });
+        }
+
+        const { first_name, last_name } = customerResults[0];
+        const name = `${first_name} ${last_name}`;
+
+        const [scoresResults] = await pool.query(
+            "SELECT score, type, times FROM scores WHERE id = ?",
+            [scores_id]
+        );
+
+        if (scoresResults.length === 0) {
+            return res.status(404).json({ message: "ไม่พบข้อมูลสำหรับ scores_id" });
+        }
+
+        const { score, type, times } = scoresResults[0];
+
+        if (scores_id === 1 || scores_id === 2) {
+            const [specialClCount] = await pool.query(
+                "SELECT scores_id, COUNT(*) AS count FROM special_cl WHERE scores_id IN (1, 2) GROUP BY scores_id"
+            );
+
+            let count1 = 0;
+            let count2 = 0;
+
+            specialClCount.forEach(row => {
+                if (row.scores_id === 1) {
+                    count1 = row.count;
+                } else if (row.scores_id === 2) {
+                    count2 = row.count;
+                }
+            });
+
+            if ((count1 + 1) > times || (count2 + 1) > times || (count1 + count2 + 1) > (times + times)) {
+                return res.status(400).json({ message: `ไม่สามารถเพิ่มกิจกรรมใหม่ได้ เนื่องจากจำนวนกิจกรรมที่มีคะแนนนี้ถึงขีดจำกัดที่ ${times} ครั้งแล้ว` });
+            }
+        } else {
+            const [specialClCount] = await pool.query(
+                "SELECT COUNT(*) AS count FROM special_cl WHERE scores_id = ?",
+                [scores_id]
+            );
+
+            const count = specialClCount[0].count;
+
+            if (count >= times) {
+                return res.status(400).json({ message: `ไม่สามารถเพิ่มกิจกรรมใหม่ได้ เนื่องจากจำนวนกิจกรรมที่มีคะแนนนี้ถึงขีดจำกัดที่ ${times} ครั้งแล้ว` });
+            }
+        }
+
+        const scores_earn = score;
+        const scores_type = type;
+
+        await pool.query(
+            "INSERT INTO special_cl (event_name, customer_id, name, scores_id, images, scores_earn, scores_type, created_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)",
+            [event_name, customer_id, name, scores_id, JSON.stringify(imageUrls), scores_earn, scores_type, 'รอดำเนินการ']
+        );
+
+        return res.status(201).json({
+            message: "เพิ่มกิจกรรมและรูปภาพลงในระบบสำเร็จ",
+            event_name: event_name,
+            images: imageUrls,
+            customer_name: name,
+            scores_earn: scores_earn,
+            scores_type: scores_type
+        });
+
+    } catch (err) {
+        console.error("เกิดข้อผิดพลาดในการเพิ่มกิจกรรม:", err);
+        return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
+    }
+};
+
+export const getSpecialEventsByCustomerId = async (req, res) => {
+    const { customer_id } = req.params;
+    const { page = 1, per_page = 10 } = req.query;
+
+    if (!customer_id) {
+        return res.status(400).json({ message: 'กรุณาระบุ customer_id' });
+    }
+
+    try {
+        const offset = (page - 1) * per_page;
+
+        const [events] = await pool.query(
+            "SELECT * FROM special_cl WHERE customer_id = ? LIMIT ? OFFSET ?",
+            [customer_id, per_page, offset]
+        );
+
+        const [totalCountResults] = await pool.query(
+            "SELECT COUNT(*) AS total FROM special_cl WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        const totalRecords = totalCountResults[0].total;
+        const totalPages = Math.ceil(totalRecords / per_page);
+
+        const [totalScoreResults] = await pool.query(
+            "SELECT SUM(scores_earn) AS total_score FROM special_cl WHERE customer_id = ?",
+            [customer_id]
+        );
+
+        const totalScore = totalScoreResults[0].total_score || 0;
+
+        const constructUrl = (page) => {
+            return `${req.protocol}://${req.get('host')}${req.baseUrl}/special-events/${customer_id}?page=${page}&per_page=${per_page}`;
+        };
+
+        const meta = {
+            total: totalRecords,
+            per_page: per_page,
+            current_page: parseInt(page),
+            last_page: totalPages,
+            first_page: 1,
+            first_page_url: constructUrl(1),
+            last_page_url: constructUrl(totalPages),
+            next_page_url: page < totalPages ? constructUrl(parseInt(page) + 1) : null,
+            previous_page_url: page > 1 ? constructUrl(parseInt(page) - 1) : null,
+            total_score: totalScore
+        };
+
+        return res.status(200).json({
+            meta: meta,
+            data: events
+        });
+    } catch (err) {
+        console.error("เกิดข้อผิดพลาดในการดึงข้อมูลกิจกรรม:", err);
+        return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
+    }
+};
+
 
 export const getCustomerEvents = async (req, res) => {
-    const { customer_id } = req.params;  // ดึง customer_id จาก params
-    let currentPage = parseInt(req.query.page) || 1;  // หน้าแรก (default = 1)
-    let perPage = parseInt(req.query.per_page) || 10;  // จำนวนข้อมูลต่อหน้า (default = 10)
+    const { customer_id } = req.params;  
+    let currentPage = parseInt(req.query.page) || 1;  
+    let perPage = parseInt(req.query.per_page) || 10;  
 
     if (isNaN(currentPage) || currentPage < 1) {
         return res.status(400).json({ message: 'Invalid page number' });
@@ -138,15 +311,14 @@ export const getCustomerEvents = async (req, res) => {
             return `${baseUrl}?${params.toString()}`;
         };
 
-        // ดึงข้อมูลจากตาราง cloud ตาม customer_id
         const query = `
             SELECT * FROM cloud WHERE customer_id = ? 
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
         `;
+
         const [eventsResults] = await pool.query(query, [customer_id, perPage, offset]);
 
-        // สร้างข้อมูล meta สำหรับ pagination
         const meta = {
             total: totalRecords,
             per_page: perPage,
@@ -159,7 +331,6 @@ export const getCustomerEvents = async (req, res) => {
             previous_page_url: currentPage > 1 ? constructUrl(currentPage - 1) : null
         };
 
-        // ส่งข้อมูลให้ผู้ใช้
         return res.status(200).json({
             meta: meta,
             data: eventsResults
