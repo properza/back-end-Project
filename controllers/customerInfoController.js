@@ -248,11 +248,6 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
 
         const totalScore = totalScoreResults[0].total_score || 0;
 
-        await pool.query(
-            "UPDATE customerinfo SET total_hour = ? WHERE customer_id = ?",
-            [totalScore, customer_id]
-        );
-
         // สร้าง URL สำหรับการแบ่งหน้า
         const constructUrl = (page) => {
             return `${req.protocol}://${req.get('host')}${req.baseUrl}/special-events/${customer_id}?page=${page}&per_page=${limit}`;
