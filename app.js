@@ -66,7 +66,6 @@ export const updateCustomerTotalHour = async () => {
 };
 
 setInterval(() => {
-    console.log('กำลังคำนวณและอัปเดต total_hour...');
     updateCustomerTotalHour();
 }, 1000);
 
