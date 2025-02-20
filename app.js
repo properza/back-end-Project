@@ -40,19 +40,13 @@ export const updateCustomerTotalHour = async () => {
              GROUP BY customer_id`
         );
 
-        // ตรวจสอบผลลัพธ์ว่ามีข้อมูลหรือไม่
-        if (results.length === 0) {
-            console.log('ไม่มีข้อมูลกิจกรรมที่อนุมัติ',results.total_scores);
-            return;
-        }
 
         for (const result of results) {
             const customerId = result.customer_id;
-            const totalScores = result.total_scores || 0;  // ถ้าไม่มีคะแนน ก็จะได้ 0
+            const totalScores = result.total_scores ?? 0;  // ถ้าไม่มีคะแนน ก็จะได้ 0
 
             const totalHour = totalScores;
 
-            // อัปเดต total_hour เฉพาะสำหรับ customer_id ที่มีการอนุมัติใน special_cl
             await pool.query(
                 `UPDATE customerinfo 
                  SET total_hour = ? 
@@ -62,8 +56,6 @@ export const updateCustomerTotalHour = async () => {
 
             console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
         }
-
-        console.log('Finished updating total_hour for all customers.');
 
     } catch (err) {
         console.error('Error updating total_hour:', err);
