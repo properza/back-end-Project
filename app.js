@@ -32,6 +32,7 @@ app.use(express.json());
 
 export const updateCustomerTotalHour = async () => {
     try {
+        // หาข้อมูลการอนุมัติจาก special_cl โดยการคำนวณคะแนน
         const [results] = await pool.query(
             `SELECT customer_id, SUM(scores_earn) AS total_scores
              FROM special_cl
@@ -39,29 +40,37 @@ export const updateCustomerTotalHour = async () => {
              GROUP BY customer_id`
         );
 
+        // ตรวจสอบผลลัพธ์ว่ามีข้อมูลหรือไม่
+        if (results.length === 0) {
+            console.log('ไม่มีข้อมูลกิจกรรมที่อนุมัติ');
+            return;
+        }
+
         for (const result of results) {
             const customerId = result.customer_id;
-            const totalScores = result.total_scores || 0;
+            const totalScores = result.total_scores || 0;  // ถ้าไม่มีคะแนน ก็จะได้ 0
 
             const totalHour = totalScores;
 
-            console.log(totalScores)
-
-            if (totalScores === 0) {
-                console.log(`total_hour is 0 for customer_id: ${customerId}`);
-            }
-
+            // อัปเดต total_hour เฉพาะสำหรับ customer_id ที่มีการอนุมัติใน special_cl
             await pool.query(
                 `UPDATE customerinfo 
                  SET total_hour = ? 
                  WHERE customer_id = ?`,
                 [totalHour, customerId]
             );
+
+            console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
         }
+
+        console.log('Finished updating total_hour for all customers.');
+
     } catch (err) {
         console.error('Error updating total_hour:', err);
     }
 };
+
+
 
 setInterval(() => {
     updateCustomerTotalHour();
