@@ -39,28 +39,29 @@ export const updateCustomerTotalHour = async () => {
              GROUP BY customer_id`
         );
 
+        if (results.length === 0) {
+            console.log('ไม่มีข้อมูลกิจกรรมที่อนุมัติ');
+            return;
+        }
+
         for (const result of results) {
             const customerId = result.customer_id;
-            // ใช้ total_scores หรือใช้ 0 หากไม่มีคะแนน
             const totalScores = result.total_scores || 0;
 
-            // ตรวจสอบว่า totalScores เป็น 0 หรือไม่ และกำหนด total_hour ตามนั้น
             const totalHour = totalScores;
 
-            // อัปเดต total_hour ใน customerinfo
-            const [updateResult] = await pool.query(
+            if (totalHour === 0) {
+                console.log(`total_hour is 0 for customer_id: ${customerId}`);
+            }
+
+            await pool.query(
                 `UPDATE customerinfo 
                  SET total_hour = ? 
                  WHERE customer_id = ?`,
                 [totalHour, customerId]
             );
 
-            // ตรวจสอบว่าอัปเดตสำเร็จหรือไม่
-            if (updateResult.affectedRows > 0) {
-                console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
-            } else {
-                console.log(`No update was made for customer_id: ${customerId}`);
-            }
+            console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
         }
 
         console.log('Finished updating total_hour for all customers.');
@@ -68,6 +69,7 @@ export const updateCustomerTotalHour = async () => {
         console.error('Error updating total_hour:', err);
     }
 };
+
 
 setInterval(() => {
     console.log('กำลังคำนวณและอัปเดต total_hour...');
