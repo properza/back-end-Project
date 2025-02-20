@@ -227,7 +227,7 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
 
         // คิวรีข้อมูลกิจกรรม
         const [events] = await pool.query(
-            "SELECT * FROM special_cl WHERE customer_id = ? AND status = 'อนุมัติ' LIMIT ? OFFSET ?",
+            "SELECT * FROM special_cl WHERE customer_id = ? LIMIT ? OFFSET ?",
             [customer_id, limit, offsetValue]
         );
 
