@@ -220,11 +220,16 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
     }
 
     try {
+        // คำนวณค่า offset
         const offset = (page - 1) * per_page;
+
+        // ตรวจสอบว่าค่าของ per_page เป็นตัวเลข
+        const limit = parseInt(per_page, 10);
+        const offsetValue = parseInt(offset, 10);
 
         const [events] = await pool.query(
             "SELECT * FROM special_cl WHERE customer_id = ? LIMIT ? OFFSET ?",
-            [customer_id, per_page, offset]
+            [customer_id, limit, offsetValue]  // เปลี่ยน per_page และ offset ให้เป็นตัวเลข
         );
 
         const [totalCountResults] = await pool.query(
@@ -233,7 +238,7 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
         );
 
         const totalRecords = totalCountResults[0].total;
-        const totalPages = Math.ceil(totalRecords / per_page);
+        const totalPages = Math.ceil(totalRecords / limit); // ใช้ limit แทน per_page
 
         const [totalScoreResults] = await pool.query(
             "SELECT SUM(scores_earn) AS total_score FROM special_cl WHERE customer_id = ?",
@@ -243,12 +248,12 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
         const totalScore = totalScoreResults[0].total_score || 0;
 
         const constructUrl = (page) => {
-            return `${req.protocol}://${req.get('host')}${req.baseUrl}/special-events/${customer_id}?page=${page}&per_page=${per_page}`;
+            return `${req.protocol}://${req.get('host')}${req.baseUrl}/special-events/${customer_id}?page=${page}&per_page=${limit}`;
         };
 
         const meta = {
             total: totalRecords,
-            per_page: per_page,
+            per_page: limit,
             current_page: parseInt(page),
             last_page: totalPages,
             first_page: 1,
@@ -268,6 +273,7 @@ export const getSpecialEventsByCustomerId = async (req, res) => {
         return res.status(500).json({ message: 'ข้อผิดพลาดภายในเซิร์ฟเวอร์', error: err.message });
     }
 };
+
 
 
 export const getCustomerEvents = async (req, res) => {
