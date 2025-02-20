@@ -784,7 +784,7 @@ export const updateStatusToCompleted = async (req, res) => {
 };
 
 export const updateSpecialEventStatus = async (req, res) => {
-    const { event_id } = req.params;  // รับ event_id จาก params
+    const { id } = req.params;  // รับ event_id จาก params
     const { status } = req.body;      // รับ status ใหม่จาก body
 
     // ตรวจสอบว่า status ใหม่มีการระบุหรือไม่
@@ -796,7 +796,7 @@ export const updateSpecialEventStatus = async (req, res) => {
         // อัปเดต status ในตาราง special_cl
         const [updateResult] = await pool.query(
             "UPDATE special_cl SET status = ? WHERE id = ?",
-            [status, event_id]
+            [status, id]
         );
 
         // ตรวจสอบว่ามีการอัปเดตแถวใดบ้าง
@@ -806,7 +806,7 @@ export const updateSpecialEventStatus = async (req, res) => {
 
         return res.status(200).json({
             message: `สถานะของกิจกรรมถูกเปลี่ยนเป็น '${status}' สำเร็จ`,
-            event_id: event_id,
+            event_id: id,
             status: status
         });
 

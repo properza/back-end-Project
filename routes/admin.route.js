@@ -31,7 +31,7 @@ router.put('/admins/:adminId', verifySuperAdmin, updateAdmin);
 router.delete('/admins/:adminId', verifySuperAdmin, deleteAdmin);
 
 //เส้นกิจกรรม กยศ.
-router.put('/special-events/status/:event_id ', verifyToken, updateSpecialEventStatus);
+router.put('/special-events/status/:id', verifyToken, updateSpecialEventStatus);
 
 //เส้นของรางวัล
 router.get('/customer_rewards/:rewardId', verifyToken, getCustomerRewardsByRewardId);
