@@ -64,7 +64,7 @@ export const updateCustomerTotalHour = async () => {
 setInterval(() => {
     console.log('กำลังคำนวณและอัปเดต total_hour...');
     updateCustomerTotalHour();
-}, 2000);
+}, 1000);
 
 const updateCustomerLevel = async () => {
     try {
