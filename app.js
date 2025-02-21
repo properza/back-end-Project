@@ -31,37 +31,54 @@ app.use(cors());
 app.use(express.json());
 
 export const updateCustomerTotalHour = async () => {
+    const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
+
         // หาข้อมูลการอนุมัติจาก special_cl โดยการคำนวณคะแนน
-        const [results] = await pool.query(
+        const [results] = await connection.query(
             `SELECT customer_id, SUM(scores_earn) AS total_scores
              FROM special_cl
              WHERE status = 'อนุมัติ'
              GROUP BY customer_id`
         );
 
-
-        for (const result of results) {
-            const customerId = result.customer_id;
-            const totalScores = result.total_scores ?? 0;  // ถ้าไม่มีคะแนน ก็จะได้ 0
-
-            const totalHour = totalScores;
-
-            await pool.query(
+        // ถ้าไม่มีข้อมูลการอนุมัติให้ set total_hour = 0 สำหรับทุก customer_id
+        if (results.length === 0) {
+            console.log('ไม่มีข้อมูลกิจกรรมที่อนุมัติ');
+            await connection.query(
                 `UPDATE customerinfo 
-                 SET total_hour = ? 
-                 WHERE customer_id = ?`,
-                [totalHour, customerId]
+                 SET total_hour = 0`
             );
+            console.log('total_hour ถูกตั้งค่าเป็น 0 สำหรับทุก customer');
+        } else {
+            // อัปเดต total_hour ตามคะแนนที่อนุมัติ
+            for (const result of results) {
+                const customerId = result.customer_id;
+                const totalScores = result.total_scores || 0;  // ถ้าไม่มีคะแนน ก็จะได้ 0
 
-            console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
+                const totalHour = totalScores;
+
+                await connection.query(
+                    `UPDATE customerinfo 
+                     SET total_hour = ? 
+                     WHERE customer_id = ?`,
+                    [totalHour, customerId]
+                );
+
+                console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
+            }
         }
 
+        await connection.commit();
+        console.log('Finished updating total_hour for all customers.');
     } catch (err) {
+        await connection.rollback();
         console.error('Error updating total_hour:', err);
+    } finally {
+        connection.release();
     }
 };
-
 
 
 setInterval(() => {
