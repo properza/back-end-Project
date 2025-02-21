@@ -62,8 +62,8 @@ export const createOrLoginCustomer = async (req, res) => {
 
             // ดึงข้อมูลของลูกค้าที่เพิ่งเพิ่ม
             const [newUserResults] = await pool.query(
-                "SELECT * FROM customerinfo WHERE customer_id = ?",
-                [insertResults.insertId] // ใช้ insertId แทน
+                "SELECT * FROM customerinfo WHERE id = ?",
+                [insertResults.insertId]
             );
 
             return res.status(200).json({
@@ -107,6 +107,7 @@ export const createOrLoginCustomer = async (req, res) => {
         return res.status(500).send("Internal server error");
     }
 };
+
 
 export const createEventInCloud = async (req, res) => {
     const { event_name, customer_id } = req.body;
