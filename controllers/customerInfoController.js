@@ -28,12 +28,11 @@ export const createOrLoginCustomer = async (req, res) => {
                 [customer_id, name, picture]
             );
 
-            // ตรวจสอบผลลัพธ์การแทรกข้อมูล
+            console.log("Insert results:", insertResults); // เพิ่มการตรวจสอบ
             if (insertResults.affectedRows === 0) {
                 return res.status(500).json({ message: 'ไม่สามารถสร้างข้อมูลลูกค้าใหม่ได้' });
             }
 
-            // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
             const [totalScoresResults] = await pool.query(
                 `SELECT SUM(scores_earn) AS total_scores
                  FROM special_cl
@@ -41,9 +40,8 @@ export const createOrLoginCustomer = async (req, res) => {
                 [customer_id]
             );
 
-            const totalScores = totalScoresResults[0].total_scores || 0; // ใช้ 0 หากไม่มีคะแนน
+            const totalScores = totalScoresResults[0].total_scores || 0;
 
-            // อัปเดต total_hour ของลูกค้าใหม่
             const [updateResults] = await pool.query(
                 `UPDATE customerinfo
                  SET total_hour = ?
@@ -51,9 +49,9 @@ export const createOrLoginCustomer = async (req, res) => {
                 [totalScores, customer_id]
             );
 
-            // ตรวจสอบการอัปเดต
+            console.log("Update results:", updateResults); // เพิ่มการตรวจสอบ
             if (updateResults.affectedRows === 0) {
-                return res.status(500).json({ message: 'ไม่สามารถอัปเดต total_hour ได้' });
+                return res.status(500).json({ message: 'ไม่สามารถอัปเดตข้อมูลลูกค้า' });
             }
 
             const [newUserResults] = await pool.query(
@@ -69,7 +67,6 @@ export const createOrLoginCustomer = async (req, res) => {
             // กรณีที่ลูกค้าเข้าสู่ระบบ
             const customer_id = results[0].customer_id;
 
-            // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
             const [totalScoresResults] = await pool.query(
                 `SELECT SUM(scores_earn) AS total_scores
                  FROM special_cl
@@ -79,7 +76,6 @@ export const createOrLoginCustomer = async (req, res) => {
 
             const totalScores = totalScoresResults[0].total_scores || 0;
 
-            // อัปเดต total_hour ของลูกค้าเข้าสู่ระบบ
             const [updateResults] = await pool.query(
                 `UPDATE customerinfo
                  SET total_hour = ?
@@ -93,10 +89,11 @@ export const createOrLoginCustomer = async (req, res) => {
             });
         }
     } catch (err) {
-        console.error("Database Error:", err); // เพิ่มข้อความที่ช่วยให้ระบุข้อผิดพลาดได้ง่ายขึ้น
+        console.error("Database Error:", err); // เพิ่มการแสดง error ที่ชัดเจน
         return res.status(500).send("Internal server error");
     }
 };
+
 
 
 export const createEventInCloud = async (req, res) => {
