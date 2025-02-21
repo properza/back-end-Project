@@ -108,7 +108,6 @@ export const createOrLoginCustomer = async (req, res) => {
     }
 };
 
-
 export const createEventInCloud = async (req, res) => {
     const { event_name, customer_id } = req.body;
 
