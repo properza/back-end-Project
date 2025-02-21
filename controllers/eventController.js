@@ -277,7 +277,6 @@ export const registerCustomerForEvent = async (req, res) => {
     }
 };
 
-
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
     const currentPage = parseInt(req.query.page) || 1;
@@ -406,7 +405,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 const durationMinutes = durationMilliseconds / (1000 * 60);
 
                 if (durationMinutes > 0) { // ตรวจสอบว่า out_time มากกว่า in_time
-                    points = Math.floor(durationMinutes / 30) * 5; // ทุก 30 นาที = 5 คะแนน
+                    //points = Math.floor(durationMinutes / 30) * 5; // ทุก 30 นาที = 5 คะแนน
+                    points = Math.floor(durationMinutes / 60); // 1 ชม = 1 คะแนน
 
                     // เพิ่มคะแนนรวม
                     totalPointsToAdd += points;

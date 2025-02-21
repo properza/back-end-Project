@@ -22,9 +22,28 @@ export const createOrLoginCustomer = async (req, res) => {
         );
 
         if (results.length === 0) {
+            // กรณีลูกค้าใหม่
             const [insertResults] = await pool.query(
                 "INSERT INTO customerinfo (customer_id, name, picture) VALUES (?, ?, ?)",
                 [customer_id, name, picture]
+            );
+
+            // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
+            const [totalScoresResults] = await pool.query(
+                `SELECT SUM(scores_earn) AS total_scores
+                 FROM special_cl
+                 WHERE customer_id = ? AND status = 'อนุมัติ'`,
+                [customer_id]
+            );
+
+            const totalScores = totalScoresResults[0].total_scores || 0; // ใช้ 0 หากไม่มีคะแนน
+
+            // อัปเดต total_hour ของลูกค้าใหม่
+            await pool.query(
+                `UPDATE customerinfo
+                 SET total_hour = ?
+                 WHERE customer_id = ?`,
+                [totalScores, customer_id]
             );
 
             const [newUserResults] = await pool.query(
@@ -37,12 +56,34 @@ export const createOrLoginCustomer = async (req, res) => {
                 user: newUserResults[0],
             });
         } else {
+            // กรณีที่ลูกค้าเข้าสู่ระบบ
+            const customer_id = results[0].customer_id;
+
+            // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
+            const [totalScoresResults] = await pool.query(
+                `SELECT SUM(scores_earn) AS total_scores
+                 FROM special_cl
+                 WHERE customer_id = ? AND status = 'อนุมัติ'`,
+                [customer_id]
+            );
+
+            const totalScores = totalScoresResults[0].total_scores || 0; // ใช้ 0 หากไม่มีคะแนน
+
+            // อัปเดต total_hour ของลูกค้าเข้าสู่ระบบ
+            await pool.query(
+                `UPDATE customerinfo
+                 SET total_hour = ?
+                 WHERE customer_id = ?`,
+                [totalScores, customer_id]
+            );
+
             return res.status(200).json({
                 message: "Login successful",
                 user: results[0],
             });
         }
     } catch (err) {
+        console.error(err);
         return res.status(500).send("Internal server error");
     }
 };
