@@ -28,6 +28,11 @@ export const createOrLoginCustomer = async (req, res) => {
                 [customer_id, name, picture]
             );
 
+            // ตรวจสอบผลลัพธ์การแทรกข้อมูล
+            if (insertResults.affectedRows === 0) {
+                return res.status(500).json({ message: 'ไม่สามารถสร้างข้อมูลลูกค้าใหม่ได้' });
+            }
+
             // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
             const [totalScoresResults] = await pool.query(
                 `SELECT SUM(scores_earn) AS total_scores
@@ -39,12 +44,17 @@ export const createOrLoginCustomer = async (req, res) => {
             const totalScores = totalScoresResults[0].total_scores || 0; // ใช้ 0 หากไม่มีคะแนน
 
             // อัปเดต total_hour ของลูกค้าใหม่
-            await pool.query(
+            const [updateResults] = await pool.query(
                 `UPDATE customerinfo
                  SET total_hour = ?
                  WHERE customer_id = ?`,
                 [totalScores, customer_id]
             );
+
+            // ตรวจสอบการอัปเดต
+            if (updateResults.affectedRows === 0) {
+                return res.status(500).json({ message: 'ไม่สามารถอัปเดต total_hour ได้' });
+            }
 
             const [newUserResults] = await pool.query(
                 "SELECT * FROM customerinfo WHERE id = ?",
@@ -67,10 +77,10 @@ export const createOrLoginCustomer = async (req, res) => {
                 [customer_id]
             );
 
-            const totalScores = totalScoresResults[0].total_scores || 0; // ใช้ 0 หากไม่มีคะแนน
+            const totalScores = totalScoresResults[0].total_scores || 0;
 
             // อัปเดต total_hour ของลูกค้าเข้าสู่ระบบ
-            await pool.query(
+            const [updateResults] = await pool.query(
                 `UPDATE customerinfo
                  SET total_hour = ?
                  WHERE customer_id = ?`,
@@ -83,10 +93,11 @@ export const createOrLoginCustomer = async (req, res) => {
             });
         }
     } catch (err) {
-        console.error(err);
+        console.error("Database Error:", err); // เพิ่มข้อความที่ช่วยให้ระบุข้อผิดพลาดได้ง่ายขึ้น
         return res.status(500).send("Internal server error");
     }
 };
+
 
 export const createEventInCloud = async (req, res) => {
     const { event_name, customer_id } = req.body;
