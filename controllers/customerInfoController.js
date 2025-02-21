@@ -11,11 +11,13 @@ const __dirname = dirname(__filename);
 export const createOrLoginCustomer = async (req, res) => {
     const { customer_id, name, picture } = req.body;
 
+    // ตรวจสอบว่าได้รับข้อมูลครบถ้วนหรือไม่
     if (!customer_id || !name || !picture) {
         return res.status(400).json({ message: 'กรุณากรอก customer_id, name และ picture ให้ครบถ้วน' });
     }
 
     try {
+        // ตรวจสอบว่ามี customer_id นี้ในฐานข้อมูลหรือไม่
         const [results] = await pool.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customer_id]
@@ -29,10 +31,13 @@ export const createOrLoginCustomer = async (req, res) => {
             );
 
             console.log("Insert results:", insertResults); // เพิ่มการตรวจสอบ
+
+            // ตรวจสอบว่าแทรกข้อมูลสำเร็จหรือไม่
             if (insertResults.affectedRows === 0) {
                 return res.status(500).json({ message: 'ไม่สามารถสร้างข้อมูลลูกค้าใหม่ได้' });
             }
 
+            // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
             const [totalScoresResults] = await pool.query(
                 `SELECT SUM(scores_earn) AS total_scores
                  FROM special_cl
@@ -42,6 +47,7 @@ export const createOrLoginCustomer = async (req, res) => {
 
             const totalScores = totalScoresResults[0].total_scores || 0;
 
+            // อัปเดต total_hour ของลูกค้าใหม่
             const [updateResults] = await pool.query(
                 `UPDATE customerinfo
                  SET total_hour = ?
@@ -54,11 +60,13 @@ export const createOrLoginCustomer = async (req, res) => {
                 return res.status(500).json({ message: 'ไม่สามารถอัปเดตข้อมูลลูกค้า' });
             }
 
+            // ดึงข้อมูลของลูกค้าที่เพิ่งเพิ่ม
             const [newUserResults] = await pool.query(
                 "SELECT * FROM customerinfo WHERE id = ?",
                 [insertResults.insertId]
             );
 
+            // ส่งข้อมูลของลูกค้าใหม่กลับไป
             return res.status(201).json({
                 message: "Customer info created",
                 user: newUserResults[0],
@@ -67,6 +75,7 @@ export const createOrLoginCustomer = async (req, res) => {
             // กรณีที่ลูกค้าเข้าสู่ระบบ
             const customer_id = results[0].customer_id;
 
+            // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
             const [totalScoresResults] = await pool.query(
                 `SELECT SUM(scores_earn) AS total_scores
                  FROM special_cl
@@ -76,6 +85,7 @@ export const createOrLoginCustomer = async (req, res) => {
 
             const totalScores = totalScoresResults[0].total_scores || 0;
 
+            // อัปเดต total_hour ของลูกค้าเข้าสู่ระบบ
             const [updateResults] = await pool.query(
                 `UPDATE customerinfo
                  SET total_hour = ?
@@ -83,6 +93,7 @@ export const createOrLoginCustomer = async (req, res) => {
                 [totalScores, customer_id]
             );
 
+            // ส่งข้อมูลของลูกค้าที่เข้าสู่ระบบกลับไป
             return res.status(200).json({
                 message: "Login successful",
                 user: results[0],
@@ -93,8 +104,6 @@ export const createOrLoginCustomer = async (req, res) => {
         return res.status(500).send("Internal server error");
     }
 };
-
-
 
 export const createEventInCloud = async (req, res) => {
     const { event_name, customer_id } = req.body;
