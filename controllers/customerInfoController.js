@@ -31,7 +31,6 @@ export const createOrLoginCustomer = async (req, res) => {
             );
 
             console.log("Insert results:", insertResults); // เพิ่มการตรวจสอบ
-
             // ตรวจสอบว่าแทรกข้อมูลสำเร็จหรือไม่
             if (insertResults.affectedRows === 0) {
                 return res.status(500).json({ message: 'ไม่สามารถสร้างข้อมูลลูกค้าใหม่ได้' });
@@ -56,6 +55,7 @@ export const createOrLoginCustomer = async (req, res) => {
             );
 
             console.log("Update results:", updateResults); // เพิ่มการตรวจสอบ
+            // ตรวจสอบการอัปเดต
             if (updateResults.affectedRows === 0) {
                 return res.status(500).json({ message: 'ไม่สามารถอัปเดตข้อมูลลูกค้า' });
             }
@@ -66,7 +66,6 @@ export const createOrLoginCustomer = async (req, res) => {
                 [insertResults.insertId]
             );
 
-            // ส่งข้อมูลของลูกค้าใหม่กลับไป
             return res.status(201).json({
                 message: "Customer info created",
                 user: newUserResults[0],
@@ -93,7 +92,11 @@ export const createOrLoginCustomer = async (req, res) => {
                 [totalScores, customer_id]
             );
 
-            // ส่งข้อมูลของลูกค้าที่เข้าสู่ระบบกลับไป
+            console.log("Update results:", updateResults); // เพิ่มการตรวจสอบ
+            if (updateResults.affectedRows === 0) {
+                return res.status(500).json({ message: 'ไม่สามารถอัปเดตข้อมูลลูกค้า' });
+            }
+
             return res.status(200).json({
                 message: "Login successful",
                 user: results[0],
@@ -104,6 +107,7 @@ export const createOrLoginCustomer = async (req, res) => {
         return res.status(500).send("Internal server error");
     }
 };
+
 
 export const createEventInCloud = async (req, res) => {
     const { event_name, customer_id } = req.body;
