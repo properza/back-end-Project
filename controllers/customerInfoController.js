@@ -25,7 +25,7 @@ export const createOrLoginCustomer = async (req, res) => {
             // กรณีลูกค้าใหม่
             const [insertResults] = await pool.query(
                 "INSERT INTO customerinfo (customer_id, name, picture) VALUES (?, ?, ?)",
-                [customer_id, name, picture]
+                [customer_id, customer_id, picture]
             );
 
             // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
