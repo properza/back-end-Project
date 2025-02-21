@@ -66,8 +66,8 @@ export const createOrLoginCustomer = async (req, res) => {
                 [insertResults.insertId]
             );
 
-            return res.status(201).json({
-                message: "Customer info created",
+            return res.status(200).json({
+                message: "Login successful",
                 user: newUserResults[0],
             });
         } else {
@@ -107,6 +107,7 @@ export const createOrLoginCustomer = async (req, res) => {
         return res.status(500).send("Internal server error");
     }
 };
+
 
 export const createEventInCloud = async (req, res) => {
     const { event_name, customer_id } = req.body;
