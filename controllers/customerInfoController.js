@@ -62,8 +62,8 @@ export const createOrLoginCustomer = async (req, res) => {
 
             // ดึงข้อมูลของลูกค้าที่เพิ่งเพิ่ม
             const [newUserResults] = await pool.query(
-                "SELECT * FROM customerinfo WHERE id = ?",
-                [insertResults.insertId]
+                "SELECT * FROM customerinfo WHERE customer_id = ?",
+                [customer_id] // ใช้ customer_id แทน insertId
             );
 
             return res.status(200).json({
@@ -71,7 +71,7 @@ export const createOrLoginCustomer = async (req, res) => {
                 user: newUserResults[0],
             });
         } else {
-            // กรณีที่ลูกค้าเข้าสู่ระบบ
+            // กรณีที่ลูกค้าเข้าสู่ระบบแล้ว
             const customer_id = results[0].customer_id;
 
             // คำนวณคะแนนรวมจาก special_cl สำหรับ customer_id นี้
