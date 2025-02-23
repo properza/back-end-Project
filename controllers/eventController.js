@@ -255,10 +255,8 @@ export const registerCustomerForEvent = async (req, res) => {
                 const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
 
-                console.log("id", lastReg.id);
-                console.log("id", currentTime.toISODate());
-                console.log("inTime:", inTime.toISO());
-                console.log("outTime:", outTime.toISO());
+                console.log("lastReg.time_check:", lastReg.time_check);
+                console.log("startTime:", startTime);
 
                 // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
                 const durationMilliseconds = outTime - inTime;
