@@ -502,7 +502,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 longitude: row.longitude,
                 status: status,  // แสดงสถานะร่วมกิจกรรม
                 registrationImages: row.registrationImages,
-                pointsEarned: row.pointsEarned || 0
+                pointsEarned: row.pointsEarned[0] || 0
             };
         }));
 
