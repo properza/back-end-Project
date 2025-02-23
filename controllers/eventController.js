@@ -259,7 +259,17 @@ export const registerCustomerForEvent = async (req, res) => {
                 const durationMilliseconds = outTime - inTime;
                 const durationMinutes = durationMilliseconds / (1000 * 60);
 
+                // ตรวจสอบว่า durationMinutes ไม่เป็น NaN
+                if (isNaN(durationMinutes)) {
+                    return res.status(400).json({ message: "การคำนวณระยะเวลาไม่ถูกต้อง" });
+                }
+
                 const points = Math.floor(durationMinutes / 60);
+
+                // ตรวจสอบว่า points ไม่เป็น NaN
+                if (isNaN(points)) {
+                    return res.status(400).json({ message: "คะแนนไม่ถูกต้อง" });
+                }
 
                 // อัพเดทข้อมูลการลงชื่อออก
                 await pool.query(
@@ -283,6 +293,7 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
