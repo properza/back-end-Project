@@ -250,65 +250,54 @@ export const registerCustomerForEvent = async (req, res) => {
         );
 
         // Logic การลงทะเบียน
-        let attendedDays = 0;
-        const totalEventDays = Math.ceil((eventEnd - eventStart) / (1000 * 3600 * 24)) + 1; // คำนวณจำนวนวันทั้งหมด
+        for (let i = 0; i < registrationResults.length; i++) {
+            const reg = registrationResults[i];
+            const regDate = DateTime.fromISO(reg.time_check).toISODate();
+            const eventStartDate = DateTime.fromISO(eventDetails.startDate).toISODate();
 
-        for (let i = 0; i < totalEventDays; i++) {
-            const eventDayStart = eventStart.plus({ days: i });  // วันเริ่มต้นของกิจกรรมในวันนั้น
-            const eventDayEnd = eventStart.plus({ days: i }).set({ hour: endHour, minute: endMinute, second: endSecond }); // วันสิ้นสุดในวันนั้น
+            // เช็คการลงชื่อเข้าในวันนั้นๆ
+            if (regDate === eventStartDate && reg.check_type === 'in') {
+                return res.status(400).json({ message: "คุณได้ลงชื่อเข้าแล้วในวันนี้" });
+            }
 
-            const currentDate = eventDayStart.toISODate(); // วันปัจจุบันสำหรับกิจกรรม
-
-            const isRegisteredOnCurrentDay = registrationResults.some(reg => {
-                const regDate = DateTime.fromISO(reg.time_check).toISODate();
-                return regDate === currentDate;  // ตรวจสอบว่าลงทะเบียนในวันนี้หรือไม่
-            });
-
-            if (!isRegisteredOnCurrentDay) {
-                if (currentTime >= eventDayStart && currentTime <= eventDayEnd) {
-                    // ลงชื่อเข้า (check_type = 'in')
-                    await pool.query(
-                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'in', ?, ?)",
-                        [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO()]
-                    );
-                    return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
-                }
-            } else {
-                const lastReg = registrationResults.find(reg => {
-                    const regDate = DateTime.fromISO(reg.time_check).toISODate();
-                    return regDate === currentDate && reg.check_type === 'in';
-                });
-
-                if (lastReg) {
-                    // ลงชื่อออก (check_type = 'out')
-                    await pool.query(
-                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'out', ?, ?)",
-                        [eventId, customerId, null, currentTime.toISO()]
-                    );
-
-                    // คำนวณระยะเวลาและคะแนน
-                    const inTime = new Date(lastReg.time_check);
-                    const outTime = new Date(currentTime.toISO());
-
-                    const durationMilliseconds = outTime - inTime;
-                    const durationMinutes = durationMilliseconds / (1000 * 60); // แปลงเป็นนาที
-
-                    // คำนวณคะแนน (1 ชั่วโมง = 1 คะแนน)
-                    const points = Math.floor(durationMinutes / 60); // ให้คะแนน 1 คะแนน ต่อ 1 ชั่วโมง
-                    await pool.query(
-                        "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
-                        [points, lastReg.id]
-                    );
-
-                    attendedDays++;
-                    if (attendedDays === totalEventDays) {
-                        return res.status(201).json({ message: `เข้าร่วมสำเร็จแล้ว ${attendedDays}/${totalEventDays}`, points: points });
-                    }
-                }
+            // เช็คการลงชื่อออกในวันนั้นๆ
+            if (regDate === eventStartDate && reg.check_type === 'out') {
+                return res.status(400).json({ message: "คุณได้ลงชื่อออกแล้วในวันนี้" });
             }
         }
 
-        return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
+        // คำนวณเวลา
+        if (currentTime >= eventStart && currentTime <= eventEnd) {
+            // ถ้ายังไม่มีการลงชื่อเข้าในวันนั้นๆ
+            await pool.query(
+                "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'in', ?, ?)",
+                [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO()]
+            );
+            return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
+        } else {
+            return res.status(400).json({ message: "หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว" });
+        }
+
+        // หลังจากลงชื่อออก คำนวณระยะเวลาและคะแนน
+        if (reg.check_type === 'in' && reg.out_time) {
+            const inTime = new Date(reg.time_check);
+            const outTime = new Date(reg.out_time);
+
+            // ตรวจสอบว่าเวลาที่ลงชื่อออกเกินเวลาสิ้นสุดกิจกรรมหรือไม่
+            if (outTime > eventEnd) {
+                return res.status(400).json({ message: "หมดเวลาลงชื่อออกแล้ว" });
+            }
+
+            const durationMilliseconds = outTime - inTime;
+            const durationMinutes = durationMilliseconds / (1000 * 60); // แปลงเป็นนาที
+
+            // คำนวณคะแนน (1 ชั่วโมง = 1 คะแนน)
+            const points = Math.floor(durationMinutes / 60); // ให้คะแนน 1 คะแนน ต่อ 1 ชั่วโมง
+            await pool.query(
+                "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+                [points, reg.id]
+            );
+        }
 
     } catch (error) {
         console.error(error);
@@ -496,7 +485,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 province: row.province,
                 latitude: row.latitude,
                 longitude: row.longitude,
-                status: status + " " + participationStatus,  // แสดงสถานะร่วมกิจกรรม
+                status: status,  // แสดงสถานะร่วมกิจกรรม
                 registrationImages: row.registrationImages,
                 pointsEarned: row.pointsEarned || 0
             };
