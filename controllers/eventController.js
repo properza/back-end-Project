@@ -253,10 +253,17 @@ export const registerCustomerForEvent = async (req, res) => {
                 return res.status(400).json({ message: `หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว` });
             }
         } else {
+            
             const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
+                
+                const [registrationResults1] = await pool.query(
+                    "SELECT * FROM registrations WHERE id = ? AND  participation_day = ?",
+                    [lastReg.id, currentDate]
+                );
+
                 // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
-                const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
+                const inTime = DateTime.fromISO(registrationResults1.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
 
                 console.log("ในเงื่อนใข "+ lastReg , "inTime "+inTime)
