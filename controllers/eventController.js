@@ -241,6 +241,9 @@ export const registerCustomerForEvent = async (req, res) => {
         const eventStart = eventStartUTC.setZone(timezone).set({ hour: startHour, minute: startMinute });
         const eventEnd = eventEndUTC.setZone(timezone).set({ hour: endHour, minute: endMinute });
 
+        const inTime = DateTime.fromISO(registrationResults.time_check, { zone: 'utc' }).setZone(timezone)
+        const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone)
+
         // Logic การลงทะเบียน
         if (registrationResults.length === 0) {
             if (currentTime >= eventStart && currentTime <= eventEnd) {
@@ -256,8 +259,7 @@ export const registerCustomerForEvent = async (req, res) => {
             const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
                 // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
-                const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone)
-                const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone)
+                
 
                 console.log(lastReg);
                 console.log("inTime:", inTime.toISO(), "outTime:", outTime.toISO());
