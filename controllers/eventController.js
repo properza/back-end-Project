@@ -32,43 +32,79 @@ export const getEventWithCustomerCount = async (req, res) => {
         const uniqueCustomerIds = new Set();
 
         const uniqueRows = eventResults.filter((row) => {
-            // ถ้าไม่มี customer_id เลย ก็ไม่ต้องเอา
             if (!row.customer_id) return false;
 
-            // ถ้าเจอ customer_id เดิมซ้ำ ให้ข้าม
             if (uniqueCustomerIds.has(row.customer_id)) {
                 return false;
             }
 
-            // ถ้ายังไม่เคยเจอ ให้บันทึกไว้ใน Set และเอาแถวนี้
             uniqueCustomerIds.add(row.customer_id);
             return true;
         });
 
-        const listST = uniqueRows.map(row => ({
-            id: row.customer_id,
-            customer_id: row.customer_id,
-            name: row.name,
-            picture: row.picture,
-            email: row.email,
-            first_name: row.first_name,
-            last_name: row.last_name,
-            user_code: row.user_code,
-            group_st: row.group_st,
-            branch_st: row.branch_st,
-            tpye_st: row.tpye_st,
-            st_tpye: row.st_tpye,
-            total_point: row.total_point,
-            faceUrl: row.faceUrl,
-            levelST: row.levelST,
-            images: row.registrationImages,
-            status: row.check_type === 'in'
-                ? 'กำลังเข้าร่วม'
-                : row.check_type === 'out'
-                    ? 'เข้าร่วมสำเร็จ'
-                    : null
-        }));
-
+        const listST = uniqueRows.map(row => {
+            // Convert startDate, endDate, startTime, and endTime to Date objects for comparison
+            const eventStartDate = new Date(row.startDate + 'T' + row.startTime);
+            const eventEndDate = new Date(row.endDate + 'T' + row.endTime);
+            const currentTime = new Date();
+            
+            // Calculate the total number of days the event spans (inclusive)
+            const totalDays = Math.ceil((eventEndDate - eventStartDate) / (1000 * 3600 * 24)) + 1;
+        
+            let status = null;
+            let participationStatus = "1/" + totalDays;
+            
+            const isMultipleDays = row.startDate !== row.endDate;
+            
+            if (row.check_type === 'in') {
+                if (currentTime > eventEndDate) {
+                    status = 'เข้าร่วมไม่สำเร็จ';
+                } else if (currentTime >= eventStartDate && currentTime < eventEndDate) {
+                    status = 'กำลังเข้าร่วม';
+                }
+            } else if (row.check_type === 'out') {
+                if (isMultipleDays) {
+                    // If event is on multiple days, mark as completed participation across the days
+                    const eventDayStart = new Date(row.startDate + 'T' + row.startTime);
+                    const eventDayEnd = new Date(row.endDate + 'T' + row.endTime);
+                    
+                    // Calculate how many days the customer attended
+                    let attendedDays = 0;
+                    const checkOutDate = new Date(row.out_time);  // Assume out_time is provided in a compatible format
+                    
+                    // Check if customer attended on specific days
+                    if (checkOutDate >= eventDayStart && checkOutDate <= eventDayEnd) {
+                        attendedDays = 1; // Customer attended this day
+                    }
+        
+                    participationStatus = `${attendedDays}/${totalDays}`; // Update participation status
+                } else {
+                    participationStatus = "1/1"; // For single day events
+                }
+                status = 'เข้าร่วมสำเร็จ';
+            }
+        
+            return {
+                id: row.customer_id,
+                customer_id: row.customer_id,
+                name: row.name,
+                picture: row.picture,
+                email: row.email,
+                first_name: row.first_name,
+                last_name: row.last_name,
+                user_code: row.user_code,
+                group_st: row.group_st,
+                branch_st: row.branch_st,
+                tpye_st: row.tpye_st,
+                st_tpye: row.st_tpye,
+                total_point: row.total_point,
+                faceUrl: row.faceUrl,
+                levelST: row.levelST,
+                images: row.registrationImages,
+                status: status + " " + participationStatus,
+            };
+        });
+        
         const eventData = {
             id: eventResults[0].id,
             activityName: eventResults[0].activityName,
@@ -120,17 +156,14 @@ export const registerCustomerForEvent = async (req, res) => {
     const { eventId } = req.params;
     const { customerId, customerLatitude, customerLongitude  } = req.body;
 
-    // ตรวจสอบ customerId
     if (!customerId) {
         return res.status(400).json({ message: "กรุณาระบุ customerId" });
     }
 
-    // ตรวจสอบว่าได้ไฟล์หรือไม่
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: "กรุณาอัปโหลดรูปภาพ" });
     }
 
-    // เก็บ URL ของไฟล์ใน Array
     const imageUrls = req.files.map(file => file.location);  // เก็บ URL ของไฟล์
 
     try {
@@ -177,7 +210,6 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ประเภทกิจกรรมไม่ตรงกับประเภทของผู้ใช้" });
         }
 
-        // const eventDetails = eventResults[0];
         const timezone = 'Asia/Bangkok';
         const currentTime = DateTime.now().setZone(timezone);
 
@@ -258,18 +290,29 @@ export const registerCustomerForEvent = async (req, res) => {
                         "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'out', ?, ?)",
                         [eventId, customerId, null, currentTime.toISO()]
                     );
-                    return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ" });
+
+                    const inTime = new Date(lastReg.time_check);
+                    const outTime = new Date(currentTime.toISO());
+
+                    const durationMilliseconds = outTime - inTime;
+                    const durationMinutes = durationMilliseconds / (1000 * 60);
+
+                    const points = Math.floor(durationMinutes / 60);
+                    await pool.query(
+                        "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+                        [points, lastReg.id]
+                    );
+
+                    return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
                 } else {
                     return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
                 }
             } else {
-                return res.status(400).json({ message: `คุณได้ลงชื่อครบแล้ว ${imagesJson}` });
+                return res.status(400).json({ message: `คุณได้ลงชื่อครบแล้ว` });
             }
         } else {
-            // After the event ends
             return res.status(400).json({ message: `หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว` });
         }
-
 
     } catch (error) {
         console.error(error);
@@ -282,23 +325,19 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
     const currentPage = parseInt(req.query.page) || 1;
     const perPage = parseInt(req.query.per_page) || 10;
 
-    // Define timezone
+    // กำหนดเขตเวลา
     const TIMEZONE = 'Asia/Bangkok';
 
-    // Validate customerId
     if (!customerId) {
         return res.status(400).json({ message: "กรุณาระบุ customerId ใน URL" });
     }
 
     let connection;
     try {
-        // Get a connection from the pool
         connection = await pool.getConnection();
 
-        // Start a transaction
         await connection.beginTransaction();
 
-        // ตรวจสอบว่ามี customer หรือไม่
         const [customerResults] = await connection.query(
             "SELECT * FROM customerinfo WHERE customer_id = ?",
             [customerId]
@@ -308,7 +347,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             return res.status(404).json({ message: "Customer not found" });
         }
 
-        // Query pagination with count of 'in' registrations
+        // ค้นหาจำนวนการลงทะเบียน (check_type = 'in')
         const [countResults] = await connection.query(
             "SELECT COUNT(*) as total FROM registrations WHERE customer_id = ? AND check_type = 'in'",
             [customerId]
@@ -317,7 +356,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         const totalPages = Math.ceil(totalRegistrations / perPage);
         const offset = (currentPage - 1) * perPage;
 
-        // ดึงรายการกิจกรรมที่ลูกค้าได้ลงทะเบียน (check_type = 'in' only) พร้อมเรียงลำดับจากล่าสุด
+        // ดึงข้อมูลกิจกรรมที่ลูกค้าลงทะเบียน
         const [eventResults] = await connection.query(
             `SELECT 
                 e.id AS eventId,
@@ -331,7 +370,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 e.province,
                 e.latitude,    
                 e.longitude,    
-                r_in.images AS registrationImages,   -- Alias for 'in' registration images
+                r_in.images AS registrationImages,   
                 r_in.time_check AS in_time,
                 r_in.id AS in_registration_id,
                 r_out.time_check AS out_time,
@@ -358,15 +397,12 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         );
 
         const formatEventDates = (event) => {
-            // Parse startDate and endDate as Luxon DateTime objects
             const eventStartUTC = DateTime.fromISO(event.startDate.toISOString(), { zone: 'utc' });
             const eventEndUTC = DateTime.fromISO(event.endDate.toISOString(), { zone: 'utc' });
 
-            // Extract hours, minutes, and seconds from startTime and endTime
             const [startHour, startMinute, startSecond] = event.startTime.split(':').map(Number);
             const [endHour, endMinute, endSecond] = event.endTime.split(':').map(Number);
 
-            // Convert to Asia/Bangkok timezone and set the correct time
             const eventStart = eventStartUTC.setZone(TIMEZONE).set({
                 hour: startHour,
                 minute: startMinute,
@@ -391,31 +427,65 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
         let totalPointsToAdd = 0;
 
-        // Prepare events data with images and calculate points
         const eventsData = await Promise.all(eventResults.map(async (row) => {
             const formattedDates = formatEventDates(row);
 
-            let points = 0;
+            let status = '';
+            let participationStatus = "1/1"; // ค่าเริ่มต้นสำหรับการเข้าร่วมไม่ครบ (1 วัน จากทั้งหมด 1 วัน)
 
-            if (row.out_time) {
+            const eventStartDate = new Date(row.startDate + 'T' + row.startTime);
+            const eventEndDate = new Date(row.endDate + 'T' + row.endTime);
+
+            // คำนวณจำนวนวันทั้งหมดที่กิจกรรมจัดขึ้น (รวมทั้งวันเริ่มต้นและวันสิ้นสุด)
+            const totalEventDays = Math.ceil((eventEndDate - eventStartDate) / (1000 * 3600 * 24)) + 1;
+
+            let attendedDays = 0;
+
+            // เช็คสถานะการเข้าร่วมของลูกค้า
+            if (row.in_registration_id) {
+                const currentTime = new Date();
+                if (currentTime > eventEndDate && !row.out_time) {
+                    status = 'เข้าร่วมไม่สำเร็จ'; // ยังไม่สำเร็จ
+                } else {
+                    status = 'กำลังเข้าร่วม'; // กำลังเข้าร่วม
+                }
+            }
+
+            // ถ้ามีการลงทะเบียน 'out' ให้ถือว่าเข้าร่วมสำเร็จและคำนวณวันที่เข้าร่วม
+            if (row.out_registration_id) {
+                status = 'เข้าร่วมสำเร็จแล้ว'; // เข้าร่วมสำเร็จแล้ว
+                const inTime = new Date(row.in_time);
+                const outTime = new Date(row.out_time);
+
+                if (outTime >= eventStartDate && outTime <= eventEndDate) {
+                    attendedDays = 1; // ลูกค้าเข้าร่วมกิจกรรมในวันนี้
+                }
+
+                participationStatus = `${attendedDays}/${totalEventDays}`; // แสดงสถานะการเข้าร่วมเป็น "X/Y"
+            }
+
+            // ถ้าลูกค้าร่วมครบทุกวัน (จำนวนวันเข้าร่วมเท่ากับจำนวนวันที่กิจกรรมจัดขึ้น)
+            if (attendedDays === totalEventDays) {
+                status = `เข้าร่วมสำเร็จแล้ว ${participationStatus}`; // เข้าร่วมครบทั้งกิจกรรม
+            }
+
+            // คำนวณระยะเวลาและคะแนน
+            if (row.in_registration_id && row.out_registration_id) {
                 const inTime = new Date(row.in_time);
                 const outTime = new Date(row.out_time);
 
                 const durationMilliseconds = outTime - inTime;
-                const durationMinutes = durationMilliseconds / (1000 * 60);
+                const durationHours = durationMilliseconds / (1000 * 3600); // แปลงเป็นชั่วโมง
 
-                if (durationMinutes > 0) { // ตรวจสอบว่า out_time มากกว่า in_time
-                    //points = Math.floor(durationMinutes / 30) * 5; // ทุก 30 นาที = 5 คะแนน
-                    points = Math.floor(durationMinutes / 60); // 1 ชม = 1 คะแนน
+                // คำนวณคะแนนจากระยะเวลาที่เข้าร่วม
+                const points = Math.floor(durationHours); // 1 ชั่วโมง = 1 คะแนน
+                totalPointsToAdd += points;
 
-                    // เพิ่มคะแนนรวม
-                    totalPointsToAdd += points;
-
-                    await connection.query(
-                        "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
-                        [points, row.in_registration_id]
-                    );
-                }
+                // อัปเดตคะแนนในฐานข้อมูล
+                await connection.query(
+                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+                    [points, row.in_registration_id]
+                );
             }
 
             return {
@@ -430,20 +500,20 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 province: row.province,
                 latitude: row.latitude,
                 longitude: row.longitude,
-                status: row.registrationImages.length > 0 ? 'เข้าร่วมสำเร็จ' : 'ไม่สำเร็จ',
+                status: status,  // แสดงสถานะร่วมกิจกรรม
                 registrationImages: row.registrationImages,
-                pointsEarned: row.pointsEarned || points
+                pointsEarned: row.pointsEarned || 0
             };
         }));
 
-        // ดึง total_point ปัจจุบันจาก customerinfo
+        // อัปเดตคะแนนทั้งหมดของลูกค้า
         const [totalPointResults] = await connection.query(
             "SELECT total_point FROM customerinfo WHERE customer_id = ?",
             [customerId]
         );
         const currentTotalPoint = totalPointResults[0].total_point || 0;
 
-        // เช็คว่า total_point ปัจจุบันมากกว่า totalPointsToAdd หรือไม่
+        // อัปเดตคะแนนลูกค้าในฐานข้อมูล
         await connection.query(
             "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
             [Math.max(totalPointsToAdd, currentTotalPoint), customerId]
@@ -455,12 +525,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             total: totalRegistrations,
             per_page: perPage,
             current_page: currentPage,
-            last_page: totalPages,
-            first_page: 1,
-            first_page_url: `/?page=1`,
-            last_page_url: `/?page=${totalPages}`,
-            next_page_url: currentPage < totalPages ? `/?page=${currentPage + 1}` : null,
-            previous_page_url: currentPage > 1 ? `/?page=${currentPage - 1}` : null
+            last_page: totalPages
         };
 
         return res.status(200).json({
@@ -471,14 +536,14 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
     } catch (error) {
         console.error("Transaction Error:", error);
 
-        // Rollback the transaction in case of error
+        // Rollback ในกรณีที่เกิดข้อผิดพลาด
         if (connection) {
             await connection.rollback();
         }
 
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
     } finally {
-        // Always release the connection
+        // ปล่อยการเชื่อมต่อ
         if (connection) {
             connection.release();
         }
