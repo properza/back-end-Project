@@ -227,9 +227,11 @@ export const registerCustomerForEvent = async (req, res) => {
 
         const currentDate = currentTime.toISODate();
 
+        console.log("วันนี้ปัจจุบัน "+currentDate)
+
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ?",
-            [eventId, customerId, currentDate]
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day LIKE ?",
+            [eventId, customerId, currentDate + '%']
         );
         
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
@@ -270,8 +272,8 @@ export const registerCustomerForEvent = async (req, res) => {
                 );
 
                 await pool.query(
-                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND participation_day = ?",
-                    [points, lastReg.id, currentDate]
+                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+                    [points, lastReg.id]
                 );
 
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
