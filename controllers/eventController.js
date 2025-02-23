@@ -225,9 +225,10 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ไม่อยู่ในช่วงวันที่ของกิจกรรม" });
         }
 
+        // Query to select the first registration for today
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ?",
-            [eventId, customerId, currentTime.toISODate()]
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ? ORDER BY time_check LIMIT 1",
+            [eventId, customerId, currentTime.toISODate()] // ใช้ currentTime.toISODate() เพื่อเลือกวันที่ปัจจุบัน
         );
 
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
@@ -294,7 +295,6 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
-
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
