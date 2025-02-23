@@ -269,7 +269,7 @@ export const registerCustomerForEvent = async (req, res) => {
 
                 await pool.query(
                     "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND participation_day = ?",
-                    [points, lastReg.id, currentTime.toISODate()] // เช็ค participation_day ให้ตรงกับวันที่ปัจจุบัน
+                    [points, lastReg.id, currentTime.toISODate()]
                 );
                 
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
@@ -434,23 +434,23 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             }
 
             // คำนวณระยะเวลาและคะแนน
-            if (row.in_registration_id && row.out_registration_id) {
-                const inTime = new Date(row.in_time);
-                const outTime = new Date(row.out_time);
+            // if (row.in_registration_id && row.out_registration_id) {
+            //     const inTime = new Date(row.in_time);
+            //     const outTime = new Date(row.out_time);
 
-                const durationMilliseconds = outTime - inTime;
-                const durationHours = durationMilliseconds / (1000 * 3600); // แปลงเป็นชั่วโมง
+            //     const durationMilliseconds = outTime - inTime;
+            //     const durationHours = durationMilliseconds / (1000 * 3600); // แปลงเป็นชั่วโมง
 
-                // คำนวณคะแนนจากระยะเวลาที่เข้าร่วม
-                const points = Math.floor(durationHours); // 1 ชั่วโมง = 1 คะแนน
-                totalPointsToAdd += points;
+            //     // คำนวณคะแนนจากระยะเวลาที่เข้าร่วม
+            //     const points = Math.floor(durationHours); // 1 ชั่วโมง = 1 คะแนน
+            //     totalPointsToAdd += points;
 
-                // อัปเดตคะแนนในฐานข้อมูล
-                await connection.query(
-                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
-                    [points, row.in_registration_id]
-                );
-            }
+            //     // อัปเดตคะแนนในฐานข้อมูล
+            //     await connection.query(
+            //         "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+            //         [points, row.in_registration_id]
+            //     );
+            // }
 
             return {
                 eventId: row.eventId,
