@@ -232,8 +232,6 @@ export const registerCustomerForEvent = async (req, res) => {
             [eventId, customerId, currentDate]
         );
 
-        console.log(registrationResults)
-        
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
         const [startHour, startMinute] = eventDetails.startTime.split(':').map(Number);
         const [endHour, endMinute] = eventDetails.endTime.split(':').map(Number);
