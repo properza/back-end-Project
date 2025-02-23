@@ -47,15 +47,15 @@ export const getEventWithCustomerCount = async (req, res) => {
             const eventStartDate = new Date(row.startDate + 'T' + row.startTime);
             const eventEndDate = new Date(row.endDate + 'T' + row.endTime);
             const currentTime = new Date();
-
+            
             // Calculate the total number of days the event spans (inclusive)
             const totalDays = Math.ceil((eventEndDate - eventStartDate) / (1000 * 3600 * 24)) + 1;
-
+        
             let status = null;
             let participationStatus = "1/" + totalDays;
-
+            
             const isMultipleDays = row.startDate !== row.endDate;
-
+            
             if (row.check_type === 'in') {
                 if (currentTime > eventEndDate) {
                     status = 'เข้าร่วมไม่สำเร็จ';
@@ -67,23 +67,23 @@ export const getEventWithCustomerCount = async (req, res) => {
                     // If event is on multiple days, mark as completed participation across the days
                     const eventDayStart = new Date(row.startDate + 'T' + row.startTime);
                     const eventDayEnd = new Date(row.endDate + 'T' + row.endTime);
-
+                    
                     // Calculate how many days the customer attended
                     let attendedDays = 0;
                     const checkOutDate = new Date(row.out_time);  // Assume out_time is provided in a compatible format
-
+                    
                     // Check if customer attended on specific days
                     if (checkOutDate >= eventDayStart && checkOutDate <= eventDayEnd) {
                         attendedDays = 1; // Customer attended this day
                     }
-
+        
                     participationStatus = `${attendedDays}/${totalDays}`; // Update participation status
                 } else {
                     participationStatus = "1/1"; // For single day events
                 }
                 status = 'เข้าร่วมสำเร็จ';
             }
-
+        
             return {
                 id: row.customer_id,
                 customer_id: row.customer_id,
@@ -104,7 +104,7 @@ export const getEventWithCustomerCount = async (req, res) => {
                 status: status + " " + participationStatus,
             };
         });
-
+        
         const eventData = {
             id: eventResults[0].id,
             activityName: eventResults[0].activityName,
@@ -164,7 +164,7 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(400).json({ message: "กรุณาอัปโหลดรูปภาพ" });
     }
 
-    const imageUrls = req.files.map(file => file.location);
+    const imageUrls = req.files.map(file => file.location);  // เก็บ URL ของไฟล์
 
     try {
         // ตรวจสอบกิจกรรม
@@ -198,7 +198,7 @@ export const registerCustomerForEvent = async (req, res) => {
         }
 
         const customerinfo = customerResults[0];
-
+        
         // เปลี่ยนค่า st_tpye ของลูกค้า
         let customerType = "normal";
         if (customerinfo.st_tpye === "กยศ.") {
@@ -225,10 +225,9 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ไม่อยู่ในช่วงวันที่ของกิจกรรม" });
         }
 
-        // Query to select the first registration for today
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ? ORDER BY time_check LIMIT 1",
-            [eventId, customerId, currentTime.toISODate()] // ใช้ currentTime.toISODate() เพื่อเลือกวันที่ปัจจุบัน
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ?",
+            [eventId, customerId, currentTime.toISODate()]
         );
 
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
@@ -243,7 +242,7 @@ export const registerCustomerForEvent = async (req, res) => {
             if (currentTime >= eventStart && currentTime <= eventEnd) {
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'in', ?, ?, ?)",
-                    [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentTime.toISODate()] // ใช้เวลาของวันที่ใน participation_day
+                    [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentTime.toISODate()]
                 );
                 return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
             } else {
@@ -256,26 +255,11 @@ export const registerCustomerForEvent = async (req, res) => {
                 const inTime = DateTime.fromISO(lastReg.time_check).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
 
-                // ตรวจสอบว่า outTime มากกว่า inTime
-                if (outTime < inTime) {
-                    return res.status(400).json({ message: "เวลาลงชื่อออกมาก่อนเวลาลงชื่อเข้าร่วมกิจกรรม" });
-                }
-
                 // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
-                const durationMilliseconds = outTime.diff(inTime).milliseconds;
-                const durationMinutes = durationMilliseconds / (1000 * 60); // เปลี่ยนมิลลิวินาทีเป็นนาที
+                const durationMilliseconds = outTime - inTime;
+                const durationMinutes = durationMilliseconds / (1000 * 60);
 
-                // ตรวจสอบว่า durationMinutes ไม่เป็น NaN และมีค่ามากกว่า 0
-                if (isNaN(durationMinutes) || durationMinutes <= 0) {
-                    return res.status(400).json({ message: "การคำนวณระยะเวลาไม่ถูกต้อง" });
-                }
-
-                let points = Math.floor(durationMinutes / 60); // คำนวณคะแนนตามชั่วโมง
-
-                // ตรวจสอบว่า points ไม่เป็น NaN และต้องมีค่ามากกว่า 0
-                if (isNaN(points) || points <= 0) {
-                    points = 0; // กรณีที่คำนวณไม่ได้ หรือมีค่าเป็น NaN, ให้คะแนนเป็น 0
-                }
+                const points = Math.floor(durationMinutes / 60);
 
                 // อัพเดทข้อมูลการลงชื่อออก
                 await pool.query(
@@ -284,10 +268,10 @@ export const registerCustomerForEvent = async (req, res) => {
                 );
 
                 await pool.query(
-                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
-                    [points, lastReg.id]
+                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND participation_day = ?",
+                    [points, lastReg.id, currentTime.toISODate()] // เช็ค participation_day ให้ตรงกับวันที่ปัจจุบัน
                 );
-
+                
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
             } else {
                 return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
