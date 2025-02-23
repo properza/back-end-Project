@@ -229,7 +229,7 @@ export const registerCustomerForEvent = async (req, res) => {
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ?",
             [eventId, customerId, currentTime.toISODate()]
         );
-
+        
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
         const [startHour, startMinute] = eventDetails.startTime.split(':').map(Number);
         const [endHour, endMinute] = eventDetails.endTime.split(':').map(Number);
@@ -254,9 +254,6 @@ export const registerCustomerForEvent = async (req, res) => {
                 // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
                 const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
-
-                console.log("lastReg.time_check:", lastReg.time_check);
-                console.log("eventDetails.startTime:", eventDetails.startTime);
 
                 // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
                 const durationMilliseconds = outTime - inTime;
@@ -286,6 +283,7 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
