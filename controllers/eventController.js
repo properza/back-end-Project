@@ -550,7 +550,6 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
     }
 };
 
-
 export const EditEvent = async (req, res) => {
     const { eventId } = req.params;
     const { event_type, latitude, longitude, province } = req.body;
