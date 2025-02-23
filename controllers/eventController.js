@@ -261,6 +261,8 @@ export const registerCustomerForEvent = async (req, res) => {
 
                 const points = Math.floor(durationMinutes / 60);
 
+                console.error(inTime , outTime ,  lastReg.time_check);
+
                 // อัพเดทข้อมูลการลงชื่อออก
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'out', ?, ?, ?)",
