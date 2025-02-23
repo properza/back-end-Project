@@ -496,7 +496,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 province: row.province,
                 latitude: row.latitude,
                 longitude: row.longitude,
-                status: status,  // แสดงสถานะร่วมกิจกรรม
+                status: status + " " + participationStatus,  // แสดงสถานะร่วมกิจกรรม
                 registrationImages: row.registrationImages,
                 pointsEarned: row.pointsEarned || 0
             };
