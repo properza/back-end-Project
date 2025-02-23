@@ -227,12 +227,12 @@ export const registerCustomerForEvent = async (req, res) => {
 
         const currentDate = currentTime.toISODate();
 
-        console.log("วันนี้ปัจจุบัน "+currentDate)
-
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day LIKE ?",
-            [eventId, customerId, currentDate + '%']
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ?",
+            [eventId, customerId, currentDate]
         );
+
+        console.log(registrationResults)
         
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
         const [startHour, startMinute] = eventDetails.startTime.split(':').map(Number);
@@ -259,6 +259,7 @@ export const registerCustomerForEvent = async (req, res) => {
                 const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
 
+                console.log("ในเงื่อนใข "+ registrationResults , "inTime "+inTime)
                 // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
                 const durationMilliseconds = outTime - inTime;
                 const durationMinutes = durationMilliseconds / (1000 * 60);
