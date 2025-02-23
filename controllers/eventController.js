@@ -47,15 +47,15 @@ export const getEventWithCustomerCount = async (req, res) => {
             const eventStartDate = new Date(row.startDate + 'T' + row.startTime);
             const eventEndDate = new Date(row.endDate + 'T' + row.endTime);
             const currentTime = new Date();
-            
+
             // Calculate the total number of days the event spans (inclusive)
             const totalDays = Math.ceil((eventEndDate - eventStartDate) / (1000 * 3600 * 24)) + 1;
-        
+
             let status = null;
             let participationStatus = "1/" + totalDays;
-            
+
             const isMultipleDays = row.startDate !== row.endDate;
-            
+
             if (row.check_type === 'in') {
                 if (currentTime > eventEndDate) {
                     status = 'เข้าร่วมไม่สำเร็จ';
@@ -67,23 +67,23 @@ export const getEventWithCustomerCount = async (req, res) => {
                     // If event is on multiple days, mark as completed participation across the days
                     const eventDayStart = new Date(row.startDate + 'T' + row.startTime);
                     const eventDayEnd = new Date(row.endDate + 'T' + row.endTime);
-                    
+
                     // Calculate how many days the customer attended
                     let attendedDays = 0;
                     const checkOutDate = new Date(row.out_time);  // Assume out_time is provided in a compatible format
-                    
+
                     // Check if customer attended on specific days
                     if (checkOutDate >= eventDayStart && checkOutDate <= eventDayEnd) {
                         attendedDays = 1; // Customer attended this day
                     }
-        
+
                     participationStatus = `${attendedDays}/${totalDays}`; // Update participation status
                 } else {
                     participationStatus = "1/1"; // For single day events
                 }
                 status = 'เข้าร่วมสำเร็จ';
             }
-        
+
             return {
                 id: row.customer_id,
                 customer_id: row.customer_id,
@@ -104,7 +104,7 @@ export const getEventWithCustomerCount = async (req, res) => {
                 status: status + " " + participationStatus,
             };
         });
-        
+
         const eventData = {
             id: eventResults[0].id,
             activityName: eventResults[0].activityName,
@@ -198,7 +198,7 @@ export const registerCustomerForEvent = async (req, res) => {
         }
 
         const customerinfo = customerResults[0];
-        
+
         // เปลี่ยนค่า st_tpye ของลูกค้า
         let customerType = "normal";
         if (customerinfo.st_tpye === "กยศ.") {
@@ -259,7 +259,18 @@ export const registerCustomerForEvent = async (req, res) => {
                 const durationMilliseconds = outTime - inTime;
                 const durationMinutes = durationMilliseconds / (1000 * 60);
 
+                // ตรวจสอบว่า durationMinutes ไม่เป็น NaN
+                if (isNaN(durationMinutes) || durationMinutes <= 0) {
+                    return res.status(400).json({ message: "การคำนวณระยะเวลาไม่ถูกต้อง" });
+                }
+
                 const points = Math.floor(durationMinutes / 60);
+
+                // ตรวจสอบว่า points ไม่เป็น NaN และต้องมีค่ามากกว่า 0
+                if (isNaN(points) || points <= 0) {
+                    // กรณีที่คำนวณไม่ได้ หรือมีค่าเป็น NaN, ให้คะแนนเป็น 0
+                    points = 0;
+                }
 
                 // อัพเดทข้อมูลการลงชื่อออก
                 await pool.query(
@@ -269,7 +280,7 @@ export const registerCustomerForEvent = async (req, res) => {
 
                 await pool.query(
                     "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND participation_day = ?",
-                    [points, lastReg.id, currentTime.toISODate()]
+                    [points, lastReg.id, currentTime.toISODate()] // เช็ค participation_day ให้ตรงกับวันที่ปัจจุบัน
                 );
 
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
