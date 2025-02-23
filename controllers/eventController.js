@@ -164,7 +164,7 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(400).json({ message: "กรุณาอัปโหลดรูปภาพ" });
     }
 
-    const imageUrls = req.files.map(file => file.location);  // เก็บ URL ของไฟล์
+    const imageUrls = req.files.map(file => file.location);
 
     try {
         // ตรวจสอบกิจกรรม
@@ -256,21 +256,25 @@ export const registerCustomerForEvent = async (req, res) => {
                 const inTime = DateTime.fromISO(lastReg.time_check).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
 
-                // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
-                const durationMilliseconds = outTime - inTime;
-                const durationMinutes = durationMilliseconds / (1000 * 60);
+                // ตรวจสอบว่า outTime มากกว่า inTime
+                if (outTime < inTime) {
+                    return res.status(400).json({ message: "เวลาลงชื่อออกมาก่อนเวลาลงชื่อเข้าร่วมกิจกรรม" });
+                }
 
-                // ตรวจสอบว่า durationMinutes ไม่เป็น NaN
+                // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
+                const durationMilliseconds = outTime.diff(inTime).milliseconds;
+                const durationMinutes = durationMilliseconds / (1000 * 60); // เปลี่ยนมิลลิวินาทีเป็นนาที
+
+                // ตรวจสอบว่า durationMinutes ไม่เป็น NaN และมีค่ามากกว่า 0
                 if (isNaN(durationMinutes) || durationMinutes <= 0) {
                     return res.status(400).json({ message: "การคำนวณระยะเวลาไม่ถูกต้อง" });
                 }
 
-                const points = Math.floor(durationMinutes / 60);
+                let points = Math.floor(durationMinutes / 60); // คำนวณคะแนนตามชั่วโมง
 
                 // ตรวจสอบว่า points ไม่เป็น NaN และต้องมีค่ามากกว่า 0
                 if (isNaN(points) || points <= 0) {
-                    // กรณีที่คำนวณไม่ได้ หรือมีค่าเป็น NaN, ให้คะแนนเป็น 0
-                    points = 0;
+                    points = 0; // กรณีที่คำนวณไม่ได้ หรือมีค่าเป็น NaN, ให้คะแนนเป็น 0
                 }
 
                 // อัพเดทข้อมูลการลงชื่อออก
