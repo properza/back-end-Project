@@ -225,9 +225,11 @@ export const registerCustomerForEvent = async (req, res) => {
             return res.status(400).json({ message: "ไม่อยู่ในช่วงวันที่ของกิจกรรม" });
         }
 
+        const currentDate = currentTime.toISODate();
+
         const [registrationResults] = await pool.query(
             "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ?",
-            [eventId, customerId, currentTime.toISODate()]
+            [eventId, customerId, currentDate]
         );
         
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
@@ -242,7 +244,7 @@ export const registerCustomerForEvent = async (req, res) => {
             if (currentTime >= eventStart && currentTime <= eventEnd) {
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'in', ?, ?, ?)",
-                    [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentTime.toISODate()]
+                    [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentDate]
                 );
                 return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
             } else {
@@ -264,12 +266,12 @@ export const registerCustomerForEvent = async (req, res) => {
                 // อัพเดทข้อมูลการลงชื่อออก
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'out', ?, ?, ?)",
-                    [eventId, customerId, null, currentTime.toISO(), currentTime.toISODate()]
+                    [eventId, customerId, null, currentTime.toISO(), currentDate]
                 );
 
                 await pool.query(
                     "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND participation_day = ?",
-                    [points, lastReg.id, currentTime.toISODate()]
+                    [points, lastReg.id, currentDate]
                 );
 
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
