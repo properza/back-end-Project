@@ -249,13 +249,14 @@ export const registerCustomerForEvent = async (req, res) => {
                 return res.status(400).json({ message: `หมดเวลาลงชื่อเข้าร่วมกิจกรรมแล้ว` });
             }
         } else {
-            const lastReg = registrationResults;
+            const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
                 // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
                 const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
 
                 console.log("id", lastReg.id);
+                console.log("id", currentTime.toISODate());
                 console.log("inTime:", inTime.toISO());
                 console.log("outTime:", outTime.toISO());
 
