@@ -66,15 +66,15 @@ export const updateCustomerTotalHour = async () => {
                     [totalHour, customerId]
                 );
 
-                console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
+                // console.log(`Successfully updated total_hour for customer_id: ${customerId}`);
             }
         }
 
         await connection.commit();
-        console.log('Finished updating total_hour for all customers.');
+        // console.log('Finished updating total_hour for all customers.');
     } catch (err) {
         await connection.rollback();
-        console.error('Error updating total_hour:', err);
+        // console.error('Error updating total_hour:', err);
     } finally {
         connection.release();
     }
