@@ -252,7 +252,7 @@ export const registerCustomerForEvent = async (req, res) => {
             const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
                 // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
-                const inTime = DateTime.fromISO(lastReg.time_check).setZone(timezone).set({ hour: startHour, minute: startMinute });
+                const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
 
                 // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
