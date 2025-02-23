@@ -284,8 +284,8 @@ export const registerCustomerForEvent = async (req, res) => {
                 );
 
                 await pool.query(
-                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND participation_day = ?",
-                    [points, lastReg.id, currentTime.toISODate()] // เช็ค participation_day ให้ตรงกับวันที่ปัจจุบัน
+                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+                    [points, lastReg.id]
                 );
 
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
