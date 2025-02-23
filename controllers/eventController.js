@@ -227,8 +227,10 @@ export const registerCustomerForEvent = async (req, res) => {
 
         const currentDate = currentTime.toISODate();
 
+        //AND check_type = 'in'
+
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND check_type = 'in' AND participation_day = ?",
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ?",
             [eventId, customerId, currentDate]
         );
 
@@ -252,7 +254,7 @@ export const registerCustomerForEvent = async (req, res) => {
             }
         } else {
             const lastReg = registrationResults[0];
-            if (lastReg.check_type === 'in') {
+            if (lastReg.check_type === 'in' && lastReg.time_check === currentDate) {
                 // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
                 const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
                 const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
