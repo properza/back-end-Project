@@ -284,7 +284,6 @@ export const registerCustomerForEvent = async (req, res) => {
     }
 };
 
-
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
     const currentPage = parseInt(req.query.page) || 1;
