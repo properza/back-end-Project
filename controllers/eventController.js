@@ -259,8 +259,8 @@ export const registerCustomerForEvent = async (req, res) => {
             if (registrationResults.length === 0) {
                 if (diffBeforeStart <= 15) {
                     await pool.query(
-                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'in', ?, ?)",
-                        [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO()]
+                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'in', ?, ?, ?)",
+                        [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentTime.toISODate()]
                     );
                     return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ (ล่วงหน้า)" });
                 } else {
@@ -279,8 +279,8 @@ export const registerCustomerForEvent = async (req, res) => {
             if (registrationResults.length === 0) {
                 if (diffAfterStart <= 45) {
                     await pool.query(
-                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'in', ?, ?)",
-                        [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO()]
+                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'in', ?, ?, ?)",
+                        [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentTime.toISODate()]
                     );
                     return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
                 } else {
@@ -290,8 +290,8 @@ export const registerCustomerForEvent = async (req, res) => {
                 const lastReg = registrationResults[0];
                 if (lastReg.check_type === 'in') {
                     await pool.query(
-                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check) VALUES (?, ?, 'out', ?, ?)",
-                        [eventId, customerId, null, currentTime.toISO()]
+                        "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'out', ?, ?, ?)",
+                        [eventId, customerId, null, currentTime.toISO(), currentTime.toISODate()]
                     );
 
                     const inTime = new Date(lastReg.time_check);
@@ -329,6 +329,7 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
