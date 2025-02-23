@@ -234,9 +234,6 @@ export const registerCustomerForEvent = async (req, res) => {
             [eventId, customerId, currentDate]
         );
 
-        const inTime = DateTime.fromISO(registrationResults.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
-        const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
-
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
         const [startHour, startMinute] = eventDetails.startTime.split(':').map(Number);
         const [endHour, endMinute] = eventDetails.endTime.split(':').map(Number);
@@ -259,7 +256,8 @@ export const registerCustomerForEvent = async (req, res) => {
             const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
                 // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
-                
+                const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone)
+                const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone)
 
                 console.log(lastReg);
                 console.log("inTime:", inTime.toISO(), "outTime:", outTime.toISO());
