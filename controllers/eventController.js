@@ -230,9 +230,12 @@ export const registerCustomerForEvent = async (req, res) => {
         //AND check_type = 'in'
 
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND participation_day = ?",
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND check_type = 'in' AND participation_day = ?",
             [eventId, customerId, currentDate]
         );
+
+        const inTime = DateTime.fromISO(registrationResults.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
+        const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
 
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
         const [startHour, startMinute] = eventDetails.startTime.split(':').map(Number);
@@ -255,45 +258,39 @@ export const registerCustomerForEvent = async (req, res) => {
         } else {
             const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
-                // แปลงเวลา time_check จาก UTC ไปยัง timezone ที่ต้องการ
-                const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone).set({ hour: startHour, minute: startMinute });
+                // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
                 
-                // ตรวจสอบว่า inTime ไม่เป็น null หรือ NaN
-                if (!inTime.isValid) {
-                    return res.status(400).json({ message: "ไม่สามารถคำนวณเวลาได้ เนื่องจาก inTime ไม่ถูกต้อง" });
-                }
-            
-                const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone).set({ hour: endHour, minute: endMinute });
-            
+
+                console.log(lastReg);
                 console.log("inTime:", inTime.toISO(), "outTime:", outTime.toISO());
-            
+
                 // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
                 const durationMilliseconds = outTime - inTime;
-                
-                // ตรวจสอบว่า durationMilliseconds ไม่เป็น NaN
-                if (isNaN(durationMilliseconds)) {
-                    return res.status(400).json({ message: "ระยะเวลาที่คำนวณไม่ถูกต้อง" });
-                }
-            
                 const durationMinutes = durationMilliseconds / (1000 * 60);
                 const points = Math.floor(durationMinutes / 60);
-            
+
+                // ตรวจสอบว่า lastReg ยังมีอยู่ก่อนทำการเพิ่มข้อมูล 'out'
+                if (!lastReg) {
+                    return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
+                }
+
                 // เพิ่มข้อมูลการลงชื่อออก (INSERT)
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'out', ?, ?, ?)",
                     [eventId, customerId, null, currentTime.toISO(), currentDate]
                 );
-            
+
                 // อัพเดทข้อมูลการลงชื่อออก (UPDATE)
                 await pool.query(
                     "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
                     [points, lastReg.id]
                 );
-            
+
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
             } else {
                 return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
             }
+
         }
 
     } catch (error) {
