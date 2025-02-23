@@ -376,7 +376,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 r_out.time_check AS out_time,
                 r_out.id AS out_registration_id,
                 r_out.images AS out_registrationImages,
-                r_out.points AS pointsEarned
+                r_in.points AS pointsEarned
             FROM 
                 event e 
             INNER JOIN 
@@ -502,7 +502,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 longitude: row.longitude,
                 status: status,  // แสดงสถานะร่วมกิจกรรม
                 registrationImages: row.registrationImages,
-                pointsEarned: row.pointsEarned[0] || 0
+                pointsEarned: row.pointsEarned || 0
             };
         }));
 
