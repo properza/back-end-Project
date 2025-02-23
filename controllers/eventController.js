@@ -242,7 +242,7 @@ export const registerCustomerForEvent = async (req, res) => {
             if (currentTime >= eventStart && currentTime <= eventEnd) {
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'in', ?, ?, ?)",
-                    [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISODate(), currentTime.toISODate()] // ใช้เวลาของวันที่ใน participation_day
+                    [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentTime.toISODate()] // ใช้เวลาของวันที่ใน participation_day
                 );
                 return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
             } else {
