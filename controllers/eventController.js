@@ -404,9 +404,10 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             };
         };
 
-        let totalPointsToAdd = 0;
+        const timezone = 'Asia/Bangkok';
+        const currentTime = DateTime.now().setZone(timezone);
 
-        let totalPointsAdded = 0; // ตัวแปรเก็บคะแนนทั้งหมดที่คำนวณ
+        let totalPointsToAdd = 0;
 
         const eventsData = await Promise.all(eventResults.map(async (row) => {
             const formattedDates = formatEventDates(row);
@@ -424,6 +425,20 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
             // เช็คสถานะการเข้าร่วมของลูกค้า
             if (row.in_registration_id) {
+                const participationDate = DateTime.fromISO(row.participation_day).setZone(timezone).toISODate(); // ตรวจสอบวันที่เข้าร่วม
+
+                // ถ้าตรงกับวันที่ปัจจุบัน
+                if (participationDate === currentTime.toISODate()) {
+                    if (!row.out_time) {
+                        // ถ้าไม่มี out_time ให้คะแนนเป็น 0
+                        await connection.query(
+                            "UPDATE registrations SET points = 0 WHERE id = ?",
+                            [row.in_registration_id]
+                        );
+                        status = 'เข้าร่วมไม่สำเร็จ (ไม่มีการลงชื่อออก)';
+                    }
+                }
+
                 const currentTime = new Date();
                 if (currentTime > eventEndDate && !row.out_time) {
                     status = 'เข้าร่วมไม่สำเร็จ'; // ยังไม่สำเร็จ
@@ -503,7 +518,6 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
         // อัปเดตข้อมูลทั้งหมดในฐานข้อมูล
         await connection.commit();
-
 
         const meta = {
             total: totalRegistrations,
