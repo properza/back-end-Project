@@ -202,11 +202,7 @@ export const registerCustomerForEvent = async (req, res) => {
         const eventStartUTC = DateTime.fromISO(startDateTimeStr, { zone: 'utc' });
         const eventEndUTC = DateTime.fromISO(endDateTimeStr, { zone: 'utc' });
 
-        // ตรวจสอบวันที่ให้แน่ใจว่าอยู่ในช่วงวันที่ของกิจกรรม
-        if (currentTime < eventStartUTC || currentTime > eventEndUTC) {
-            console.log(currentTime ,eventStartUTC)
-            return res.status(400).json({ message: "ไม่อยู่ในช่วงวันที่ของกิจกรรม" });
-        }
+
 
         const currentDate = currentTime.toISODate();
 
@@ -223,6 +219,14 @@ export const registerCustomerForEvent = async (req, res) => {
 
         const eventStart = eventStartUTC.setZone(timezone).set({ hour: startHour, minute: startMinute });
         const eventEnd = eventEndUTC.setZone(timezone).set({ hour: endHour, minute: endMinute });
+
+        const earlyStartTime = eventStart.minus({ minutes: 15 });
+
+        // ตรวจสอบว่าเวลาปัจจุบันสามารถลงทะเบียนได้หรือไม่
+        if (currentTime < earlyStartTime || currentTime > eventEnd) {
+            console.log(currentTime, eventStart, eventEnd);
+            return res.status(400).json({ message: "ไม่อยู่ในช่วงเวลาลงทะเบียนกิจกรรม" });
+        }
 
         // Logic การลงทะเบียน
         if (registrationResults.length === 0) {
@@ -369,26 +373,26 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
         const eventsData = await Promise.all(eventResults.map(async (row) => {
             const formattedDates = formatEventDates(row);
-        
+
             let status = '';
-        
+
             const eventStartDate = new Date(row.startDate);
             const eventEndDate = new Date(row.endDate);
-        
+
             // คำนวณจำนวนวันทั้งหมดที่กิจกรรมจัดขึ้น (รวมทั้งวันเริ่มต้นและวันสิ้นสุด)
             const totalEventDays = Math.ceil((eventEndDate - eventStartDate) / (1000 * 3600 * 24)) + 1;
-        
+
             let attendedDays = 1;
-        
+
             if (row.in_registration_id) {
-        
+
                 const inTime = new Date(row.in_time);
                 let outTime = null;
-        
+
                 if (row.out_time) {
                     outTime = new Date(row.out_time);
                 }
-        
+
                 // ถ้าไม่มี out_time แสดงว่า "กำลังเข้าร่วม"
                 if (!outTime && inTime <= eventEndDate) {
                     status = "กำลังเข้าร่วม"; // หากไม่มี out_time แสดงว่าเข้าร่วมอยู่
@@ -399,7 +403,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                     if (inDay >= eventStartDate.toISOString().split('T')[0] && inDay <= eventEndDate.toISOString().split('T')[0]) {
                         attendedDays += 1;
                     }
-        
+
                     if (inDay === outTime || outDay === inDay) {
                         const durationMilliseconds = outTime - inTime;
                         const durationHours = durationMilliseconds / (1000 * 3600);
@@ -412,14 +416,14 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
                         totalPointsToAdd += points;
                     }
-                    
+
                     status = `เข้าร่วมสำเร็จแล้ว ${attendedDays}/${totalEventDays}`;
                 }
                 if (!outTime && inTime > eventEndDate) {
                     status = "เข้าร่วมไม่สำเร็จ";
                 }
             }
-        
+
             return {
                 eventId: row.eventId,
                 activityName: row.activityName,
