@@ -202,14 +202,11 @@ export const registerCustomerForEvent = async (req, res) => {
         const eventStartUTC = DateTime.fromISO(startDateTimeStr, { zone: 'utc' });
         const eventEndUTC = DateTime.fromISO(endDateTimeStr, { zone: 'utc' });
 
-
-
         const currentDate = currentTime.toISODate();
 
-        //AND check_type = 'in'
-
+        // ตรวจสอบการลงทะเบียน
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND check_type = 'in' AND participation_day = ?",
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND check_type IN ('in', 'out') AND participation_day = ?",
             [eventId, customerId, currentDate]
         );
 
@@ -231,6 +228,7 @@ export const registerCustomerForEvent = async (req, res) => {
         // Logic การลงทะเบียน
         if (registrationResults.length === 0) {
             if (currentTime >= eventStart && currentTime <= eventEnd) {
+                // เช็คชื่อเข้าร่วมกิจกรรม
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'in', ?, ?, ?)",
                     [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentDate]
@@ -242,7 +240,18 @@ export const registerCustomerForEvent = async (req, res) => {
         } else {
             const lastReg = registrationResults[0];
 
-            if (lastReg.check_type === 'in') {
+            if (lastReg.check_type === 'in' && registrationResults.length === 1) {
+                const timeIn = DateTime.fromISO(lastReg.time_check, { zone: timezone });
+                const timeOut = DateTime.fromISO(currentTime.toISO(), { zone: timezone });
+
+                const duration = timeOut.diff(timeIn, 'hours').hours;  // คำนวณระยะเวลาเป็นชั่วโมง
+                const totalPointsToAdd = Math.floor(duration);  // 1 ชั่วโมงเท่ากับ 1 คะแนน
+
+                // อัปเดตคะแนนให้กับลูกค้า
+                await pool.query(
+                    "UPDATE customerinfo SET total_point = total_point + ? WHERE customer_id = ?",
+                    [totalPointsToAdd, customerId]
+                );
 
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'out', ?, ?, ?)",
@@ -253,7 +262,6 @@ export const registerCustomerForEvent = async (req, res) => {
             } else {
                 return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
             }
-
         }
 
     } catch (error) {
@@ -261,6 +269,7 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
@@ -442,10 +451,10 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             };
         }));
 
-        await connection.query(
-            "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
-            [totalPointsToAdd, customerId]
-        );
+        // await connection.query(
+        //     "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
+        //     [totalPointsToAdd, customerId]
+        // );
 
         await connection.commit();
 
