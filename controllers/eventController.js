@@ -255,17 +255,18 @@ export const registerCustomerForEvent = async (req, res) => {
         } else {
             const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
-                console.log("lastReg.time_check:", lastReg.time_check);
                 const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone);
-                console.log("inTime:", inTime.toISO());
+                const outTime = DateTime.fromISO(currentTime.toISO(), { zone: 'utc' }).setZone(timezone);
+                console.log("inTime:", inTime.toISO(), "outTime:", outTime.toISO());
 
-                const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone)
-                console.log("inTime after setZone:", inTime.toISO())
+                const participationDate = DateTime.fromISO(lastReg.participation_day);
+                console.log("participationDate:", participationDate.toISO());
 
                 // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
                 const durationMilliseconds = outTime - inTime;
                 const durationMinutes = durationMilliseconds / (1000 * 60);
                 const points = Math.floor(durationMinutes / 60);
+                console.log("Duration:", durationMinutes, "Points:", points);
 
                 // ตรวจสอบว่า lastReg ยังมีอยู่ก่อนทำการเพิ่มข้อมูล 'out'
                 if (!lastReg || !lastReg.time_check) {
