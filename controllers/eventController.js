@@ -205,9 +205,21 @@ export const registerCustomerForEvent = async (req, res) => {
         const currentDate = currentTime.toISODate();
 
         const [registrationResults] = await pool.query(
-            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND check_type ='in' AND participation_day = ?",
+            "SELECT * FROM registrations WHERE event_id = ? AND customer_id = ? AND check_type IN ('in', 'out') AND participation_day = ?",
             [eventId, customerId, currentDate]
         );
+
+        console.log(registrationResults)
+
+        console.log(currentDate)
+
+        if (registrationResults[1]) {
+            const existingReg = registrationResults[1];
+
+            if (existingReg.check_type === 'out') {
+                return res.status(400).json({ message: "ท่านได้ลงชื่อครบแล้ว" });
+            }
+        }
 
         // ตรวจสอบเวลาลงชื่อและออกในแต่ละวัน
         const [startHour, startMinute] = eventDetails.startTime.split(':').map(Number);
@@ -219,9 +231,11 @@ export const registerCustomerForEvent = async (req, res) => {
         const earlyStartTime = eventStart.minus({ minutes: 15 });
 
         // ตรวจสอบว่าเวลาปัจจุบันสามารถลงทะเบียนได้หรือไม่
-        if (currentTime < earlyStartTime || currentTime > eventEnd) {
+        if (currentTime < earlyStartTime) {
             console.log(currentTime, eventStart, eventEnd);
             return res.status(400).json({ message: "ไม่อยู่ในช่วงเวลาลงทะเบียนกิจกรรม" });
+        } else if (currentTime > eventEnd) {
+            return res.status(400).json({ message: "หมดเวลาลงทะเบียนกิจกรรมแล้ว" });
         }
 
         // Logic การลงทะเบียน
@@ -229,7 +243,7 @@ export const registerCustomerForEvent = async (req, res) => {
             if (currentTime >= eventStart && currentTime <= eventEnd) {
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'in', ?, ?, ?)",
-                    [eventId, customerId, JSON.stringify(imageUrls), currentTime.toISO(), currentDate]
+                    [eventId, customerId, JSON.stringify(imageUrls), new Date(currentTime), currentDate]
                 );
                 return res.status(201).json({ message: "เช็คชื่อเข้าร่วมกิจกรรมสำเร็จ" });
             } else {
@@ -237,27 +251,35 @@ export const registerCustomerForEvent = async (req, res) => {
             }
         } else {
             const lastReg = registrationResults[0];
-            const lastReg2 = registrationResults;
-            console.log('ข้อมูลก่อนเข้าเงื่อนไข :', lastReg)
-            console.log('ข้อมูลก่อนเข้าเงื่อนไข2 :', lastReg2)
+            const timeInString = new Date(lastReg.time_check);
+
+            // ใช้ Luxon ในการแปลงเวลาเป็นเขตเวลา 'Asia/Bangkok'
+            const timeIn = DateTime.fromJSDate(timeInString).setZone('Asia/Bangkok');
 
             if (lastReg.check_type === 'in') {
-                console.log('ข้อมูลเมื่อเข้าเงื่อนไข :', lastReg, "มี check_type : " + lastReg.check_type + " และ " + lastReg.time_check)
+                console.log(lastReg.time_check)
+                const inDay = lastReg.time_check;
+                const timeOut = currentTime;
 
-                const timeIn = DateTime.fromISO(lastReg.time_check, { zone: timezone });
-                const timeOut = DateTime.fromISO(currentTime.toISO(), { zone: timezone });
+                console.log("inDay ", inDay)
+                console.log("timeInString ", timeInString)
 
-                const duration = timeOut.diff(timeIn, 'hours').hours;  // คำนวณระยะเวลาเป็นชั่วโมง
-                const totalPointsToAdd = Math.floor(duration);
-                
+                console.log("timeIn ", timeIn)
+                console.log("timeOut ", timeOut)
+
+                const durationMilliseconds = timeOut - timeIn;
+                const durationHours = durationMilliseconds / (1000 * 3600);
+                const points = Math.floor(durationHours);
+                console.log("คะแนน ", points)
+
                 await pool.query(
                     "UPDATE customerinfo SET total_point = total_point + ? WHERE customer_id = ?",
-                    [totalPointsToAdd, customerId]
+                    [points, customerId]
                 );
 
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day , points_awarded ) VALUES (?, ?, 'out', ?, ?, ?, FALSE)",
-                    [eventId, customerId, null, currentTime.toISO(), currentDate]
+                    [eventId, customerId, null, new Date(currentTime), currentDate]
                 );
 
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ" });
@@ -350,8 +372,8 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         );
 
         const formatEventDates = (event) => {
-            const eventStartUTC = DateTime.fromISO(event.startDate.toISOString(), { zone: 'utc' });
-            const eventEndUTC = DateTime.fromISO(event.endDate.toISOString(), { zone: 'utc' });
+            const eventStartUTC = DateTime.fromJSDate(event.startDate).setZone('Asia/Bangkok');
+            const eventEndUTC = DateTime.fromJSDate(event.endDate).setZone('Asia/Bangkok');
 
             const [startHour, startMinute, startSecond] = event.startTime.split(':').map(Number);
             const [endHour, endMinute, endSecond] = event.endTime.split(':').map(Number);
@@ -370,6 +392,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 millisecond: 0
             });
 
+
             return {
                 startDate: eventStart.toISODate(), // 'YYYY-MM-DD'
                 endDate: eventEnd.toISODate(),
@@ -387,38 +410,61 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
             let status = '';
 
-            const eventStartDate = new Date(row.startDate);
-            const eventEndDate = new Date(row.endDate);
+            const eventStartDate = DateTime.fromJSDate(row.startDate).setZone('Asia/Bangkok');
+            const eventEndDate = DateTime.fromJSDate(row.endDate).setZone('Asia/Bangkok');
 
-            // คำนวณจำนวนวันทั้งหมดที่กิจกรรมจัดขึ้น (รวมทั้งวันเริ่มต้นและวันสิ้นสุด)
+            const [startHour, startMinute, startSecond] = row.startTime.split(':').map(Number);
+            const [endHour, endMinute, endSecond] = row.endTime.split(':').map(Number);
+
+            const updatedEventStartDate = eventStartDate.set({
+                hour: startHour,
+                minute: startMinute,
+                second: startSecond,
+                millisecond: 0
+            });
+
+            const updatedEventEndDate = eventEndDate.set({
+                hour: endHour,
+                minute: endMinute,
+                second: endSecond,
+                millisecond: 0
+            });
+
+            const StartDate = updatedEventStartDate.toFormat('yyyy-MM-dd');
+            const EndDate = updatedEventEndDate.toFormat('yyyy-MM-dd');
+
             const totalEventDays = Math.ceil((eventEndDate - eventStartDate) / (1000 * 3600 * 24)) + 1;
 
             let attendedDays = 1;
 
             if (row.in_registration_id) {
 
-                const inTime = new Date(row.in_time);
+                const inTime = DateTime.fromJSDate(row.in_time).setZone('Asia/Bangkok');
                 let outTime = null;
 
                 if (row.out_time) {
-                    outTime = new Date(row.out_time);
+                    outTime = DateTime.fromJSDate(row.out_time).setZone('Asia/Bangkok');
                 }
 
-                // ถ้าไม่มี out_time แสดงว่า "กำลังเข้าร่วม"
-                if (!outTime && inTime <= eventEndDate) {
+                if (!outTime && inTime <= updatedEventEndDate) {
                     status = "กำลังเข้าร่วม"; // หากไม่มี out_time แสดงว่าเข้าร่วมอยู่
                 } else {
-                    const inDay = inTime.toISOString().split('T')[0];
-                    const outDay = outTime.toISOString().split('T')[0];
+                    const inDay = inTime.toFormat('yyyy-MM-dd');
+                    const outDay = outTime.toFormat('yyyy-MM-dd');
 
-                    if (inDay >= eventStartDate.toISOString().split('T')[0] && inDay <= eventEndDate.toISOString().split('T')[0]) {
+                    if (inTime >= updatedEventStartDate && inTime <= updatedEventEndDate) {
                         attendedDays += 1;
                     }
 
-                    if (inDay === outTime || outDay === inDay) {
+                    console.log(inTime,' + ', outTime , outDay)
+
+                    if (inDay === outDay || outDay === inDay) {
                         const durationMilliseconds = outTime - inTime;
                         const durationHours = durationMilliseconds / (1000 * 3600);
                         const points = Math.floor(durationHours);
+
+                        console.log("durationMilliseconds " + outTime, inTime)
+                        console.log("points "+ points)
 
                         await connection.query(
                             "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND check_type = 'in' AND DATE(time_check) = ?",
@@ -430,7 +476,11 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
                     status = `เข้าร่วมสำเร็จแล้ว ${attendedDays}/${totalEventDays}`;
                 }
-                if (!outTime && inTime > eventEndDate) {
+
+                const timezone = 'Asia/Bangkok';
+                const currentTime = DateTime.now().setZone(timezone);
+
+                if (!outTime && currentTime > updatedEventEndDate) {
                     status = "เข้าร่วมไม่สำเร็จ";
                 }
             }
@@ -452,11 +502,6 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 pointsEarned: row.pointsEarned || 0
             };
         }));
-
-        // await connection.query(
-        //     "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
-        //     [totalPointsToAdd, customerId]
-        // );
 
         await connection.commit();
 
