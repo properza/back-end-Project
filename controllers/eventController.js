@@ -255,23 +255,23 @@ export const registerCustomerForEvent = async (req, res) => {
         } else {
             const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
-                const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone);
-                const outTime = DateTime.fromISO(currentTime.toISO(), { zone: 'utc' }).setZone(timezone);
-                console.log("inTime:", inTime.toISO(), "outTime:", outTime.toISO());
+                // const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone);
+                // const outTime = DateTime.fromISO(currentTime.toISO(), { zone: 'utc' }).setZone(timezone);
+                // console.log("inTime:", inTime.toISO(), "outTime:", outTime.toISO());
 
-                const participationDate = DateTime.fromISO(lastReg.participation_day);
-                console.log("participationDate:", participationDate.toISO());
+                // const participationDate = DateTime.fromISO(lastReg.participation_day);
+                // console.log("participationDate:", participationDate.toISO());
 
-                // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
-                const durationMilliseconds = outTime - inTime;
-                const durationMinutes = durationMilliseconds / (1000 * 60);
-                const points = Math.floor(durationMinutes / 60);
-                console.log("Duration:", durationMinutes, "Points:", points);
+                // // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
+                // const durationMilliseconds = outTime - inTime;
+                // const durationMinutes = durationMilliseconds / (1000 * 60);
+                // const points = Math.floor(durationMinutes / 60);
+                // console.log("Duration:", durationMinutes, "Points:", points);
 
-                // ตรวจสอบว่า lastReg ยังมีอยู่ก่อนทำการเพิ่มข้อมูล 'out'
-                if (!lastReg || !lastReg.time_check) {
-                    return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
-                }
+                // // ตรวจสอบว่า lastReg ยังมีอยู่ก่อนทำการเพิ่มข้อมูล 'out'
+                // if (!lastReg || !lastReg.time_check) {
+                //     return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
+                // }
 
                 // เพิ่มข้อมูลการลงชื่อออก (INSERT)
                 await pool.query(
@@ -280,12 +280,12 @@ export const registerCustomerForEvent = async (req, res) => {
                 );
 
                 // อัพเดทข้อมูลการลงชื่อออก (UPDATE)
-                await pool.query(
-                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
-                    [points, lastReg.id]
-                );
+                // await pool.query(
+                //     "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+                //     [points, lastReg.id]
+                // );
 
-                return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ", points: points });
+                return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ"});
             } else {
                 return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
             }
@@ -408,18 +408,18 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
 
         const eventsData = await Promise.all(eventResults.map(async (row) => {
             const formattedDates = formatEventDates(row);
-
+        
             let status = '';
             let participationStatus = "1/1"; // ค่าเริ่มต้นสำหรับการเข้าร่วมไม่ครบ (1 วัน จากทั้งหมด 1 วัน)
-
+        
             const eventStartDate = new Date(row.startDate + 'T' + row.startTime);
             const eventEndDate = new Date(row.endDate + 'T' + row.endTime);
-
+        
             // คำนวณจำนวนวันทั้งหมดที่กิจกรรมจัดขึ้น (รวมทั้งวันเริ่มต้นและวันสิ้นสุด)
             const totalEventDays = Math.ceil((eventEndDate - eventStartDate) / (1000 * 3600 * 24)) + 1;
-
+        
             let attendedDays = 0;
-
+        
             // เช็คสถานะการเข้าร่วมของลูกค้า
             if (row.in_registration_id) {
                 const currentTime = new Date();
@@ -429,44 +429,41 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                     status = 'กำลังเข้าร่วม'; // กำลังเข้าร่วม
                 }
             }
-
+        
             // ถ้ามีการลงทะเบียน 'out' ให้ถือว่าเข้าร่วมสำเร็จและคำนวณวันที่เข้าร่วม
             if (row.out_registration_id) {
                 status = 'เข้าร่วมสำเร็จแล้ว'; // เข้าร่วมสำเร็จแล้ว
                 const inTime = new Date(row.in_time);
                 const outTime = new Date(row.out_time);
-
+        
+                // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
+                const durationMilliseconds = outTime - inTime;
+                const durationHours = durationMilliseconds / (1000 * 3600); // แปลงเป็นชั่วโมง
+        
+                // คำนวณคะแนนจากระยะเวลาที่เข้าร่วม
+                const points = Math.floor(durationHours); // 1 ชั่วโมง = 1 คะแนน
+        
+                // อัปเดตคะแนนที่ได้จากกิจกรรม
+                totalPointsToAdd += points;
+        
+                // อัปเดตคะแนนในฐานข้อมูล
+                await connection.query(
+                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
+                    [points, row.in_registration_id]
+                );
+        
                 if (outTime >= eventStartDate && outTime <= eventEndDate) {
                     attendedDays = 1; // ลูกค้าเข้าร่วมกิจกรรมในวันนี้
                 }
-
+        
                 participationStatus = `${attendedDays}/${totalEventDays}`; // แสดงสถานะการเข้าร่วมเป็น "X/Y"
             }
-
+        
             // ถ้าลูกค้าร่วมครบทุกวัน (จำนวนวันเข้าร่วมเท่ากับจำนวนวันที่กิจกรรมจัดขึ้น)
             if (attendedDays === totalEventDays) {
                 status = `เข้าร่วมสำเร็จแล้ว ${participationStatus}`; // เข้าร่วมครบทั้งกิจกรรม
             }
-
-            // คำนวณระยะเวลาและคะแนน
-            // if (row.in_registration_id && row.out_registration_id) {
-            //     const inTime = new Date(row.in_time);
-            //     const outTime = new Date(row.out_time);
-
-            //     const durationMilliseconds = outTime - inTime;
-            //     const durationHours = durationMilliseconds / (1000 * 3600); // แปลงเป็นชั่วโมง
-
-            //     // คำนวณคะแนนจากระยะเวลาที่เข้าร่วม
-            //     const points = Math.floor(durationHours); // 1 ชั่วโมง = 1 คะแนน
-            //     totalPointsToAdd += points;
-
-            //     // อัปเดตคะแนนในฐานข้อมูล
-            //     await connection.query(
-            //         "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
-            //         [points, row.in_registration_id]
-            //     );
-            // }
-
+        
             return {
                 eventId: row.eventId,
                 activityName: row.activityName,
@@ -491,7 +488,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
             [customerId]
         );
         const currentTotalPoint = totalPointResults[0].total_point || 0;
-
+        
         // อัปเดตคะแนนลูกค้าในฐานข้อมูล
         await connection.query(
             "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
