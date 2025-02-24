@@ -241,9 +241,6 @@ export const registerCustomerForEvent = async (req, res) => {
         const eventStart = eventStartUTC.setZone(timezone).set({ hour: startHour, minute: startMinute });
         const eventEnd = eventEndUTC.setZone(timezone).set({ hour: endHour, minute: endMinute });
 
-        const inTime = DateTime.fromISO(registrationResults.time_check, { zone: 'utc' }).setZone(timezone)
-        const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone)
-
         // Logic การลงทะเบียน
         if (registrationResults.length === 0) {
             if (currentTime >= eventStart && currentTime <= eventEnd) {
@@ -258,11 +255,12 @@ export const registerCustomerForEvent = async (req, res) => {
         } else {
             const lastReg = registrationResults[0];
             if (lastReg.check_type === 'in') {
-                // คำนวณเวลาลงชื่อและออกในวันนั้น ๆ
-                
+                console.log("lastReg.time_check:", lastReg.time_check);
+                const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone);
+                console.log("inTime:", inTime.toISO());
 
-                console.log(lastReg);
-                console.log("inTime:", inTime.toISO(), "outTime:", outTime.toISO());
+                const outTime = DateTime.fromISO(currentTime.toISO()).setZone(timezone)
+                console.log("inTime after setZone:", inTime.toISO())
 
                 // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
                 const durationMilliseconds = outTime - inTime;
@@ -270,7 +268,7 @@ export const registerCustomerForEvent = async (req, res) => {
                 const points = Math.floor(durationMinutes / 60);
 
                 // ตรวจสอบว่า lastReg ยังมีอยู่ก่อนทำการเพิ่มข้อมูล 'out'
-                if (!lastReg) {
+                if (!lastReg || !lastReg.time_check) {
                     return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
                 }
 
