@@ -44,8 +44,8 @@ export const getEventWithCustomerCount = async (req, res) => {
 
         const listST = uniqueRows.map(row => {
             // Convert startDate, endDate, startTime, and endTime to Date objects for comparison
-            const eventStartDate = new Date(row.startDate + 'T' + row.startTime);
-            const eventEndDate = new Date(row.endDate + 'T' + row.endTime);
+            const eventStartDate = new Date(row.startDate);
+            const eventEndDate = new Date(row.endDate);
             const currentTime = new Date();
 
             // Calculate the total number of days the event spans (inclusive)
@@ -63,24 +63,6 @@ export const getEventWithCustomerCount = async (req, res) => {
                     status = 'กำลังเข้าร่วม';
                 }
             } else if (row.check_type === 'out') {
-                if (isMultipleDays) {
-                    // If event is on multiple days, mark as completed participation across the days
-                    const eventDayStart = new Date(row.startDate + 'T' + row.startTime);
-                    const eventDayEnd = new Date(row.endDate + 'T' + row.endTime);
-
-                    // Calculate how many days the customer attended
-                    let attendedDays = 0;
-                    const checkOutDate = new Date(row.out_time);  // Assume out_time is provided in a compatible format
-
-                    // Check if customer attended on specific days
-                    if (checkOutDate >= eventDayStart && checkOutDate <= eventDayEnd) {
-                        attendedDays = 1; // Customer attended this day
-                    }
-
-                    participationStatus = `${attendedDays}/${totalDays}`; // Update participation status
-                } else {
-                    participationStatus = "1/1"; // For single day events
-                }
                 status = 'เข้าร่วมสำเร็จ';
             }
 
@@ -101,7 +83,7 @@ export const getEventWithCustomerCount = async (req, res) => {
                 faceUrl: row.faceUrl,
                 levelST: row.levelST,
                 images: row.registrationImages,
-                status: status + " " + participationStatus,
+                status: status,
             };
         });
 
@@ -254,36 +236,28 @@ export const registerCustomerForEvent = async (req, res) => {
             }
         } else {
             const lastReg = registrationResults[0];
+
             if (lastReg.check_type === 'in') {
-                // const inTime = DateTime.fromISO(lastReg.time_check, { zone: 'utc' }).setZone(timezone);
-                // const outTime = DateTime.fromISO(currentTime.toISO(), { zone: 'utc' }).setZone(timezone);
-                // console.log("inTime:", inTime.toISO(), "outTime:", outTime.toISO());
+                // const inTime = new Date(lastReg.time_check);
+                // const outTime = new Date(currentTime.toISO());
+                // const inDay = inTime.toISOString().split('T')[0];
 
-                // const participationDate = DateTime.fromISO(lastReg.participation_day);
-                // console.log("participationDate:", participationDate.toISO());
-
-                // // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรม
-                // const durationMilliseconds = outTime - inTime;
-                // const durationMinutes = durationMilliseconds / (1000 * 60);
-                // const points = Math.floor(durationMinutes / 60);
-                // console.log("Duration:", durationMinutes, "Points:", points);
-
-                // // ตรวจสอบว่า lastReg ยังมีอยู่ก่อนทำการเพิ่มข้อมูล 'out'
-                // if (!lastReg || !lastReg.time_check) {
-                //     return res.status(400).json({ message: "ข้อมูลการลงชื่อไม่ถูกต้อง" });
-                // }
-
-                // เพิ่มข้อมูลการลงชื่อออก (INSERT)
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'out', ?, ?, ?)",
                     [eventId, customerId, null, currentTime.toISO(), currentDate]
                 );
 
-                // อัพเดทข้อมูลการลงชื่อออก (UPDATE)
-                // await pool.query(
-                //     "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
-                //     [points, lastReg.id]
-                // );
+                // if (inDay === outTime) {
+
+                //     const durationMilliseconds = outTime - inTime;
+                //     const durationHours = durationMilliseconds / (1000 * 3600);
+                //     const points = Math.floor(durationHours);
+
+                //     await pool.query(
+                //         "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND check_type = 'in' AND DATE(time_check) = ?",
+                //         [points, lastReg.id, inDay]
+                //     );
+                // }
 
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ" });
             } else {
@@ -297,7 +271,6 @@ export const registerCustomerForEvent = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
-
 
 export const getRegisteredEventsForCustomer = async (req, res) => {
     const { customerId } = req.params; // รับ customerId จาก URL params
@@ -405,86 +378,62 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         };
 
         const timezone = 'Asia/Bangkok';
-        const currentTime = DateTime.now().setZone(timezone);
 
         let totalPointsToAdd = 0;
 
         const eventsData = await Promise.all(eventResults.map(async (row) => {
             const formattedDates = formatEventDates(row);
-
+        
             let status = '';
-            let participationStatus = "1/1"; // ค่าเริ่มต้นสำหรับการเข้าร่วมไม่ครบ (1 วัน จากทั้งหมด 1 วัน)
-
-            const eventStartDate = new Date(row.startDate + 'T' + row.startTime);
-            const eventEndDate = new Date(row.endDate + 'T' + row.endTime);
-
+        
+            const eventStartDate = new Date(row.startDate);
+            const eventEndDate = new Date(row.endDate);
+        
             // คำนวณจำนวนวันทั้งหมดที่กิจกรรมจัดขึ้น (รวมทั้งวันเริ่มต้นและวันสิ้นสุด)
             const totalEventDays = Math.ceil((eventEndDate - eventStartDate) / (1000 * 3600 * 24)) + 1;
-
-            let attendedDays = 0;
-
-            // เช็คสถานะการเข้าร่วมของลูกค้า
+        
+            let attendedDays = 1;
+        
             if (row.in_registration_id) {
-                const participationDate = DateTime.fromISO(row.participation_day).setZone(timezone).toISODate(); // ตรวจสอบวันที่เข้าร่วม
-
-                // ถ้าตรงกับวันที่ปัจจุบัน
-                if (participationDate === currentTime.toISODate()) {
-                    if (!row.out_time) {
-                        // ถ้าไม่มี out_time ให้คะแนนเป็น 0
-                        await connection.query(
-                            "UPDATE registrations SET points = 0 WHERE id = ?",
-                            [row.in_registration_id]
-                        );
-                        status = 'เข้าร่วมไม่สำเร็จ (ไม่มีการลงชื่อออก)';
-                    }
-                }
-
-                const currentTime = new Date();
-                if (currentTime > eventEndDate && !row.out_time) {
-                    status = 'เข้าร่วมไม่สำเร็จ'; // ยังไม่สำเร็จ
-                } else {
-                    status = 'กำลังเข้าร่วม'; // กำลังเข้าร่วม
-                }
-            }
-
-            // ถ้ามีการลงทะเบียน 'out' ให้ถือว่าเข้าร่วมสำเร็จและคำนวณวันที่เข้าร่วม
-            if (row.out_registration_id) {
-                status = 'เข้าร่วมสำเร็จแล้ว'; // เข้าร่วมสำเร็จแล้ว
+        
                 const inTime = new Date(row.in_time);
-                const outTime = new Date(row.out_time);
-
-                // คำนวณระยะเวลาที่ลูกค้าเข้าร่วมกิจกรรมในแต่ละวัน
-                const durationMilliseconds = outTime - inTime;
-                const durationHours = durationMilliseconds / (1000 * 3600); // แปลงเป็นชั่วโมง
-
-                // คำนวณคะแนนจากระยะเวลาที่เข้าร่วม
-                const points = Math.floor(durationHours); // 1 ชั่วโมง = 1 คะแนน
-
-                // บวกคะแนนที่ได้จากกิจกรรม
-                totalPointsToAdd += points;
-
-                // อัปเดตคะแนนในฐานข้อมูล
-                await connection.query(
-                    "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ?",
-                    [points, row.in_registration_id]
-                );
-
-                // เช็คว่าลูกค้าเข้าร่วมกิจกรรมในวันนี้หรือไม่
-                const inDay = new Date(inTime).toISOString().split('T')[0]; // วันของการเข้า
-                const outDay = new Date(outTime).toISOString().split('T')[0]; // วันของการออก
-
-                if (inDay === outDay) {
-                    attendedDays = 1; // ลูกค้าเข้าร่วมในวันเดียว
+                let outTime = null;
+        
+                if (row.out_time) {
+                    outTime = new Date(row.out_time);
                 }
+        
+                // ถ้าไม่มี out_time แสดงว่า "กำลังเข้าร่วม"
+                if (!outTime && inTime <= eventEndDate) {
+                    status = "กำลังเข้าร่วม"; // หากไม่มี out_time แสดงว่าเข้าร่วมอยู่
+                } else {
+                    const inDay = inTime.toISOString().split('T')[0];
+                    const outDay = outTime.toISOString().split('T')[0];
 
-                participationStatus = `${attendedDays}/${totalEventDays}`; // แสดงสถานะการเข้าร่วมเป็น "X/Y"
+                    if (inDay >= eventStartDate.toISOString().split('T')[0] && inDay <= eventEndDate.toISOString().split('T')[0]) {
+                        attendedDays += 1;
+                    }
+        
+                    if (inDay === outTime || outDay === inDay) {
+                        const durationMilliseconds = outTime - inTime;
+                        const durationHours = durationMilliseconds / (1000 * 3600);
+                        const points = Math.floor(durationHours);
+
+                        await connection.query(
+                            "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND check_type = 'in' AND DATE(time_check) = ?",
+                            [points, row.in_registration_id, inDay]
+                        );
+
+                        totalPointsToAdd += points;
+                    }
+                    
+                    status = `เข้าร่วมสำเร็จแล้ว ${attendedDays}/${totalEventDays}`;
+                }
+                if (!outTime && inTime > eventEndDate) {
+                    status = "เข้าร่วมไม่สำเร็จ";
+                }
             }
-
-            // ถ้าลูกค้าร่วมครบทุกวัน (จำนวนวันเข้าร่วมเท่ากับจำนวนวันที่กิจกรรมจัดขึ้น)
-            if (attendedDays === totalEventDays) {
-                status = `เข้าร่วมสำเร็จแล้ว ${participationStatus}`; // เข้าร่วมครบทั้งกิจกรรม
-            }
-
+        
             return {
                 eventId: row.eventId,
                 activityName: row.activityName,
@@ -497,40 +446,49 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 province: row.province,
                 latitude: row.latitude,
                 longitude: row.longitude,
-                status: status,  // แสดงสถานะร่วมกิจกรรม
+                status: status,
                 registrationImages: row.registrationImages,
                 pointsEarned: row.pointsEarned || 0
             };
         }));
 
-        // อัปเดตคะแนนทั้งหมดของลูกค้า
-        const [totalPointResults] = await connection.query(
-            "SELECT total_point FROM customerinfo WHERE customer_id = ?",
-            [customerId]
-        );
-        const currentTotalPoint = totalPointResults[0].total_point || 0;
-
-        // อัปเดตคะแนนลูกค้าในฐานข้อมูล
         await connection.query(
             "UPDATE customerinfo SET total_point = ? WHERE customer_id = ?",
-            [Math.max(totalPointsToAdd, currentTotalPoint), customerId]
+            [totalPointsToAdd, customerId]
         );
 
-        // อัปเดตข้อมูลทั้งหมดในฐานข้อมูล
         await connection.commit();
 
-        const meta = {
-            total: totalRegistrations,
-            per_page: perPage,
-            current_page: currentPage,
-            last_page: totalPages
-        };
+        const uniqueEvents = eventsData.reduce((acc, event) => {
+            if (event.pointsEarned >= 0) {
+                const existingEvent = acc.find(e => e.eventId === event.eventId);
+
+                if (existingEvent) {
+                    if (!existingEvent.pointsEarned.includes(event.pointsEarned)) {
+                        existingEvent.pointsEarned.push(event.pointsEarned);
+                    }
+                } else {
+                    acc.push({
+                        ...event,
+                        pointsEarned: [event.pointsEarned]
+                    });
+                }
+            }
+
+            return acc;
+        }, []);
 
         return res.status(200).json({
-            meta: meta,
-            data: eventsData,
+            meta: {
+                total: totalRegistrations,
+                per_page: perPage,
+                current_page: currentPage,
+                last_page: totalPages
+            },
+            data: uniqueEvents,
             totalPointsAdded: totalPointsToAdd
         });
+
     } catch (error) {
         console.error("Transaction Error:", error);
 
