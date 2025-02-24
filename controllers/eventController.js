@@ -204,6 +204,7 @@ export const registerCustomerForEvent = async (req, res) => {
 
         // ตรวจสอบวันที่ให้แน่ใจว่าอยู่ในช่วงวันที่ของกิจกรรม
         if (currentTime < eventStartUTC || currentTime > eventEndUTC) {
+            console.log(currentTime ,eventStartUTC)
             return res.status(400).json({ message: "ไม่อยู่ในช่วงวันที่ของกิจกรรม" });
         }
 
@@ -238,26 +239,11 @@ export const registerCustomerForEvent = async (req, res) => {
             const lastReg = registrationResults[0];
 
             if (lastReg.check_type === 'in') {
-                // const inTime = new Date(lastReg.time_check);
-                // const outTime = new Date(currentTime.toISO());
-                // const inDay = inTime.toISOString().split('T')[0];
 
                 await pool.query(
                     "INSERT INTO registrations (event_id, customer_id, check_type, images, time_check, participation_day) VALUES (?, ?, 'out', ?, ?, ?)",
                     [eventId, customerId, null, currentTime.toISO(), currentDate]
                 );
-
-                // if (inDay === outTime) {
-
-                //     const durationMilliseconds = outTime - inTime;
-                //     const durationHours = durationMilliseconds / (1000 * 3600);
-                //     const points = Math.floor(durationHours);
-
-                //     await pool.query(
-                //         "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND check_type = 'in' AND DATE(time_check) = ?",
-                //         [points, lastReg.id, inDay]
-                //     );
-                // }
 
                 return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ" });
             } else {
