@@ -52,6 +52,14 @@ export const getEventWithCustomerCount = async (req, res) => {
 
         // 3) จัดกลุ่มข้อมูลด้วย Map ตาม customer_id
         //    เพื่อคำนวณชั่วโมง-นาทีที่เข้าร่วม
+        const firstRow = eventResults[0];
+        const endDateObj = new Date(firstRow.endDate); // ได้ date (เฉพาะวัน)
+        // แยก HH:mm
+        const [endH, endM] = firstRow.endTime.split(':').map(Number);
+        endDateObj.setHours(endH);
+        endDateObj.setMinutes(endM);
+        endDateObj.setSeconds(0);
+        endDateObj.setMilliseconds(0);
         const userMap = new Map();
 
         for (const row of eventResults) {
@@ -114,6 +122,13 @@ export const getEventWithCustomerCount = async (req, res) => {
                 }
             }
 
+            if (finalStatus === 'กำลังเข้าร่วม') {
+                const now = new Date();
+                if (now > endDateObj) {
+                    finalStatus = 'เข้าร่วมไม่สำเร็จ';
+                }
+            }
+
             // คำนวณเป็นชม.นาที
             const totalHours = Math.floor(totalDurationMs / (1000 * 60 * 60));
             const totalMinutes = Math.floor((totalDurationMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -141,13 +156,12 @@ export const getEventWithCustomerCount = async (req, res) => {
             total_point: u.total_point,
             faceUrl: u.faceUrl,
             levelST: u.levelST,
-            // เวลารวมที่เข้าร่วม (เช่น "2 ชม. 15 นาที")
             participationTime: u.participationTime,
             status: u.status,
         }));
 
         // 6) เตรียมข้อมูล event เพื่อตอบกลับ
-        const firstRow = eventResults[0]; // หยิบแถวแรกไว้เป็นข้อมูล event
+         // หยิบแถวแรกไว้เป็นข้อมูล event
         const eventData = {
             id: firstRow.id,
             activityName: firstRow.activityName,
@@ -181,7 +195,6 @@ export const getEventWithCustomerCount = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
-
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371000; // รัศมีของโลกในเมตร
@@ -344,7 +357,7 @@ export const registerCustomerForEvent = async (req, res) => {
                 `INSERT INTO registrations 
                     (event_id, customer_id, check_type, images, time_check, participation_day, points_awarded)
                  VALUES (?, ?, 'out', ?, ?, ?, FALSE)`,
-                [eventId, customerId, null, new Date(currentTime), currentDate]
+                [eventId, customerId, JSON.stringify(imageUrls), new Date(currentTime), currentDate]
             );
 
             return res.status(201).json({ message: "เช็คชื่อออกจากกิจกรรมสำเร็จ" });
@@ -552,6 +565,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                     joinedDurationString,
                     status,
                     registrationImages: row.registrationImages,
+                    outRegistrationImages: row.out_registrationImages,
                     pointsEarned: row.pointsEarned || 0,
                 };
             })
