@@ -187,10 +187,11 @@ export const registerCustomerForEvent = async (req, res) => {
             customerType = "special";
         }
 
-        // เปรียบเทียบ st_tpye ของลูกค้ากับ event_type ของกิจกรรม
-        if (customerType !== eventDetails.event_type) {
+        // ถ้า eventDetails.event_type เป็น "special" ต้องให้ customerType เป็น "special" เท่านั้น
+        if (eventDetails.event_type === "special" && customerType !== "special") {
             return res.status(400).json({ message: "ประเภทกิจกรรมไม่ตรงกับประเภทของผู้ใช้" });
         }
+
 
         const timezone = 'Asia/Bangkok';
         const currentTime = DateTime.now().setZone(timezone);
@@ -456,7 +457,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                         attendedDays += 1;
                     }
 
-                    console.log(inTime,' + ', outTime , outDay)
+                    console.log(inTime, ' + ', outTime, outDay)
 
                     if (inDay === outDay || outDay === inDay) {
                         const durationMilliseconds = outTime - inTime;
@@ -464,7 +465,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                         const points = Math.floor(durationHours);
 
                         console.log("durationMilliseconds " + outTime, inTime)
-                        console.log("points "+ points)
+                        console.log("points " + points)
 
                         await connection.query(
                             "UPDATE registrations SET points_awarded = TRUE, points = ? WHERE id = ? AND check_type = 'in' AND DATE(time_check) = ?",

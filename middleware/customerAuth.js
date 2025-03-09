@@ -29,6 +29,4 @@ export const customerAuth = async (req, res, next) => {
         //console.log(error);
         return res.status(401).send({ code: "ERR_TOKEN", message: "Invalid token" });
     }
-};
-
-
+}
