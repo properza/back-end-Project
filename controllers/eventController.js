@@ -416,6 +416,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 e.province,
                 e.latitude,    
                 e.longitude,
+                e.event_type,
                 
                 -- ข้อมูลการเช็คอิน
                 r_in.images AS registrationImages,   
@@ -561,6 +562,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                     province: row.province,
                     latitude: row.latitude,
                     longitude: row.longitude,
+                    event_type:row.event_type,
                     activityDurationString,
                     joinedDurationString,
                     status,
