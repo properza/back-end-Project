@@ -161,7 +161,7 @@ export const getEventWithCustomerCount = async (req, res) => {
         }));
 
         // 6) เตรียมข้อมูล event เพื่อตอบกลับ
-         // หยิบแถวแรกไว้เป็นข้อมูล event
+        // หยิบแถวแรกไว้เป็นข้อมูล event
         const eventData = {
             id: firstRow.id,
             activityName: firstRow.activityName,
@@ -526,11 +526,14 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                                 [points, row.in_registration_id, inDay]
                             );
 
+
+                            await connection.query(
+                                "UPDATE customerinfo SET total_hEvent = total_hEvent + ? WHERE customer_id = ?",
+                                [points, customerId]
+                            );
+
                             status = "เข้าร่วมสำเร็จ";
 
-                            // ---- จุดสำคัญ ----
-                            // ถ้าผู้ใช้ out สำเร็จ => เอา "ระยะเวลากิจกรรม" มาบวกเข้ากับ totalActivityMinutes
-                            // (เพราะเราต้องการสรุป "ชม. กิจกรรมทั้งหมด" ที่ผู้ใช้เช็คออก)
                             if (durationEventMs > 0) {
                                 const sumEventMinutes = Math.floor(durationEventMs / 60000);
                                 totalActivityMinutes += sumEventMinutes;
@@ -562,7 +565,7 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                     province: row.province,
                     latitude: row.latitude,
                     longitude: row.longitude,
-                    event_type:row.event_type,
+                    event_type: row.event_type,
                     activityDurationString,
                     joinedDurationString,
                     status,
@@ -580,6 +583,17 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
         const sumHours = Math.floor(totalActivityMinutes / 60);
         const sumMinutes = totalActivityMinutes % 60;
         const totalPointsAdded = `${sumHours} ชม. ${sumMinutes} นาที`;
+
+        const totalHours = Math.floor(totalActivityMinutes / 60);
+        const totalMinutes = totalActivityMinutes % 60;
+        const totalEventString = `${totalHours} ชั่วโมง ${totalMinutes} นาที`;
+
+        // อัปเดตฟิลด์ total_Event ใน customerinfo
+        await connection.query(
+            "UPDATE customerinfo SET total_Event = ? WHERE customer_id = ?",
+            [totalEventString, customerId]
+        );
+
 
         // ลบกิจกรรมซ้ำ (ถ้า 1 event => 1 แถว)
         const uniqueEvents = [];
@@ -599,7 +613,6 @@ export const getRegisteredEventsForCustomer = async (req, res) => {
                 last_page: totalPages
             },
             data: uniqueEvents,
-            // totalPointsAdded = รวม activityDurationString (เป็น ชม./นาที) ของทุกกิจกรรมที่ผู้ใช้ out
             totalPointsAdded
         });
 
