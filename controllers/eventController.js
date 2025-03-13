@@ -9,7 +9,7 @@ export const getEventWithCustomerCount = async (req, res) => {
     try {
         // 1) นับจำนวนแถวทั้งหมดใน registrations เพื่อใช้ทำ pagination
         const [countResults] = await pool.query(
-            "SELECT COUNT(*) as total FROM registrations WHERE event_id = ?",
+            "SELECT COUNT(*) as total FROM registrations WHERE event_id = ? AND check_type = 'in'",
             [eventId]
         );
         const totalCustomers = countResults[0].total;  // **หมายเหตุ**: นี่คือยอดรวม "แถว" ไม่ใช่ยอดรวม "คน" จริง
@@ -83,7 +83,6 @@ export const getEventWithCustomerCount = async (req, res) => {
                     total_point: row.total_point,
                     faceUrl: row.faceUrl,
                     levelST: row.levelST,
-                    // เอาไว้เก็บ registration ทุกรายการของลูกค้าคนนี้
                     registrations: [],
                 });
             }
