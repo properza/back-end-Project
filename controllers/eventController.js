@@ -39,7 +39,7 @@ export const getEventWithCustomerCount = async (req, res) => {
              FROM event e
              LEFT JOIN registrations r ON e.id = r.event_id
              LEFT JOIN customerinfo c ON r.customer_id = c.customer_id
-             WHERE e.id = ?
+             WHERE e.id = ? AND check_type = 'in'
              ORDER BY r.customer_id, r.time_check
              LIMIT ? OFFSET ?`,
             [eventId, perPage, offset]
