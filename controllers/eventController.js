@@ -39,10 +39,9 @@ export const getEventWithCustomerCount = async (req, res) => {
              FROM event e
              LEFT JOIN registrations r ON e.id = r.event_id
              LEFT JOIN customerinfo c ON r.customer_id = c.customer_id
-             WHERE e.id = ? AND check_type = 'in'
-             ORDER BY r.customer_id, r.time_check
-             LIMIT ? OFFSET ?`,
-            [eventId, perPage, offset]
+             WHERE e.id = ?
+             ORDER BY r.customer_id, r.time_check`,
+            [eventId]
         );
 
         // กรณีไม่พบ event ในตาราง
@@ -104,19 +103,18 @@ export const getEventWithCustomerCount = async (req, res) => {
             // วนดูทุก registration ของผู้ใช้
             for (const reg of regs) {
                 if (reg.check_type === 'in') {
-                    // ถ้าเจอ in ให้จดเวลา
                     lastInTime = new Date(reg.time_check);
                     finalStatus = 'กำลังเข้าร่วม';
                 } else if (reg.check_type === 'out') {
                     // ถ้าเจอ out และมี lastInTime => นำมาคำนวณเวลาที่อยู่
-                    if (lastInTime) {
+                    // if (lastInTime) {
                         const outTime = new Date(reg.time_check);
                         const diffMs = outTime - lastInTime;
                         if (diffMs > 0) {
                             totalDurationMs += diffMs;
                         }
                         lastInTime = null; // เคลียร์ lastInTime เมื่อ out แล้ว
-                    }
+                    // }
                     finalStatus = 'เข้าร่วมสำเร็จ';
                 }
             }
@@ -159,8 +157,6 @@ export const getEventWithCustomerCount = async (req, res) => {
             status: u.status,
         }));
 
-        // 6) เตรียมข้อมูล event เพื่อตอบกลับ
-        // หยิบแถวแรกไว้เป็นข้อมูล event
         const eventData = {
             id: firstRow.id,
             activityName: firstRow.activityName,
